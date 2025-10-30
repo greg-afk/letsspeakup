@@ -81,12 +81,12 @@ export default function Home() {
           <div className="flex items-center justify-center gap-3 mb-4">
             <Sparkles className="w-10 h-10 text-primary" />
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Card Match
+              Let's Speak Up
             </h1>
             <Sparkles className="w-10 h-10 text-primary" />
           </div>
           <p className="text-lg text-muted-foreground max-w-lg mx-auto">
-            A turn-based multiplayer card game where players create card sets and secretly rate them. Match the active player's rating to win!
+            A Demo Version for Facilitators!
           </p>
         </div>
 
@@ -193,13 +193,13 @@ export default function Home() {
               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
                 1
               </span>
-              <p>Each player starts with 5 cards: 3 from Deck 1, 1 from Deck 2, and 1 from Deck 3.</p>
+              <p>Each player starts with 5 cards: 3 Statement Cards, 1 Role Card, and 1 Context Card.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
                 2
               </span>
-              <p>On your turn, select one card from each deck to create a set and rate it as "good" or "bad".</p>
+              <p>On your turn, select one card from each deck to create a set and rate it as "good" if you think it promotes psychological safety or "bad" if you think it hinders psychological safety.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
