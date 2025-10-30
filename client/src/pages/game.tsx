@@ -241,7 +241,7 @@ export default function Game() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        Deck 1
+                        Statement Cards
                       </Label>
                       {selectedCards.deck1 && (
                         <Badge variant="outline" className="text-xs">Selected</Badge>
@@ -265,7 +265,7 @@ export default function Game() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        Deck 2
+                        Role Card
                       </Label>
                       {selectedCards.deck2 && (
                         <Badge variant="outline" className="text-xs">Selected</Badge>
@@ -289,7 +289,7 @@ export default function Game() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        Deck 3
+                        Context Card
                       </Label>
                       {selectedCards.deck3 && (
                         <Badge variant="outline" className="text-xs">Selected</Badge>
