@@ -65,3 +65,4 @@ export function createDeck(deckNumber: number, count: number): Card[] {
 
   return cards;
 }
+export const storage = new MemStorage();
