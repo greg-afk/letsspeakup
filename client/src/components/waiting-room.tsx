@@ -83,13 +83,13 @@ export function WaitingRoom({ gameState, myPlayerId, roomCode }: WaitingRoomProp
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
-            Each player will receive 5 cards: 3 from Deck 1, 1 from Deck 2, and 1 from Deck 3.
+            Each player will receive 5 cards: 3 Statement Cards, 1 Role Card, and 1 Context Card.
           </p>
           <p>
-            On your turn, select one card from each deck to create a set, then rate it as "good" or "bad".
+            On your turn, select one card from each deck to create a set, then rate it as "good" if you think it promotes psychological safety or "bad" if you think it hinders psychological safety.
           </p>
           <p>
-            Other players will try to match your rating. See who knows you best!
+            Other players will try to match your rating.
           </p>
         </CardContent>
       </Card>
