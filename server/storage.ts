@@ -65,4 +65,11 @@ export function createDeck(deckNumber: number, count: number): Card[] {
 
   return cards;
 }
+export class MemStorage {
+  // You can paste the full class implementation here if you already have it.
+  // For now, here's a placeholder:
+  getMessage() {
+    return "Storage is working!";
+  }
+}
 export const storage = new MemStorage();
