@@ -17,7 +17,7 @@ export function WaitingRoom({ gameState, myPlayerId, roomCode }: WaitingRoomProp
 
   const handleStartGame = () => {
     const socket = getSocket();
-    socket.emit("next_round");
+    socket.emit("start_game");
   };
 
   return (
