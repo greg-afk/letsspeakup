@@ -1,8 +1,7 @@
 
-import type { Card } from "@shared/schema";
+import type { Card, Player, GameState, CardSet, Rating } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-// Helper function to generate a random room code
 export function generateRoomCode(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
@@ -12,7 +11,6 @@ export function generateRoomCode(): string {
   return code;
 }
 
-// Custom card values for each deck
 const deckValues: Record<number, string[]> = {
   1: [
     "I don’t think that joke was offensive; people need to lighten up.",
@@ -50,11 +48,9 @@ const deckValues: Record<number, string[]> = {
   ]
 };
 
-// Helper function to create a deck of cards
 export function createDeck(deckNumber: number, count: number): Card[] {
   const values = deckValues[deckNumber];
   const cards: Card[] = [];
-
   for (let i = 0; i < count; i++) {
     cards.push({
       id: randomUUID(),
@@ -62,14 +58,120 @@ export function createDeck(deckNumber: number, count: number): Card[] {
       value: values[i % values.length],
     });
   }
-
   return cards;
 }
+
 export class MemStorage {
-  // You can paste the full class implementation here if you already have it.
-  // For now, here's a placeholder:
-  getMessage() {
-    return "Storage is working!";
+  private rooms: Map<string, GameState> = new Map();
+
+  createRoom(hostPlayerId: string, hostPlayerName: string): string {
+    const roomCode = generateRoomCode();
+    const hostPlayer: Player = {
+      id: hostPlayerId,
+      name: hostPlayerName,
+      isConnected: true,
+    };
+    const gameState: GameState = {
+      roomCode,
+      phase: "waiting",
+      players: [hostPlayer],
+      currentPlayerIndex: 0,
+      ratings: [],
+      round: 0,
+      maxPlayers: 3,
+    };
+    this.rooms.set(roomCode, gameState);
+    return roomCode;
+  }
+
+  getRoom(roomCode: string): GameState | undefined {
+    return this.rooms.get(roomCode);
+  }
+
+  addPlayerToRoom(roomCode: string, playerId: string, playerName: string): boolean {
+    const room = this.rooms.get(roomCode);
+    if (!room || room.players.length >= room.maxPlayers || room.phase !== "waiting") return false;
+    if (room.players.some(p => p.id === playerId)) return false;
+    room.players.push({ id: playerId, name: playerName, isConnected: true });
+    return true;
+  }
+
+  removePlayerFromRoom(roomCode: string, playerId: string): void {
+    const room = this.rooms.get(roomCode);
+    if (!room) return;
+    room.players = room.players.filter(p => p.id !== playerId);
+    if (room.players.length === 0) this.rooms.delete(roomCode);
+  }
+
+  updatePlayerConnection(roomCode: string, playerId: string, isConnected: boolean): void {
+    const room = this.rooms.get(roomCode);
+    if (!room) return;
+    const player = room.players.find(p => p.id === playerId);
+    if (player) player.isConnected = isConnected;
+  }
+
+  startGame(roomCode: string): boolean {
+    const room = this.rooms.get(roomCode);
+    if (!room || room.players.length < 2 || room.phase !== "waiting") return false;
+    room.phase = "selecting";
+    room.round = 1;
+    room.currentPlayerIndex = 0;
+    room.ratings = [];
+    this.dealCardsToCurrentPlayer(room);
+    return true;
+  }
+
+  private dealCardsToCurrentPlayer(room: GameState): void {
+    room.activePlayerHand = {
+      deck1: createDeck(1, 3),
+      deck2: createDeck(2, 1),
+      deck3: createDeck(3, 1),
+    };
+  }
+
+  selectCards(roomCode: string, playerId: string, cards: CardSet, rating: "good" | "bad"): boolean {
+    const room = this.rooms.get(roomCode);
+    if (!room || room.phase !== "selecting") return false;
+    const currentPlayer = room.players[room.currentPlayerIndex];
+    if (!currentPlayer || currentPlayer.id !== playerId) return false;
+    room.selectedCards = cards;
+    room.activePlayerRating = rating;
+    room.phase = "rating";
+    room.ratings = [{ playerId: currentPlayer.id, rating }];
+    room.activePlayerHand = undefined;
+    return true;
+  }
+
+  submitRating(roomCode: string, playerId: string, rating: "good" | "bad"): boolean {
+    const room = this.rooms.get(roomCode);
+    if (!room || room.phase !== "rating") return false;
+    const currentPlayer = room.players[room.currentPlayerIndex];
+    if (currentPlayer && currentPlayer.id === playerId) return false;
+    if (room.ratings.some(r => r.playerId === playerId)) return false;
+    room.ratings.push({ playerId, rating });
+    if (room.ratings.length === room.players.length) room.phase = "revealing";
+    return true;
+  }
+
+  nextRound(roomCode: string): boolean {
+    const room = this.rooms.get(roomCode);
+    if (!room || room.phase !== "revealing") return false;
+    room.ratings = [];
+    room.selectedCards = undefined;
+    room.activePlayerRating = undefined;
+    room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
+    if (room.currentPlayerIndex === 0) room.round++;
+    room.phase = "selecting";
+    this.dealCardsToCurrentPlayer(room);
+    return true;
+  }
+
+  getRoomByPlayerId(playerId: string): GameState | undefined {
+    for (const room of this.rooms.values()) {
+      if (room.players.some(p => p.id === playerId)) return room;
+    }
+    return undefined;
   }
 }
+
 export const storage = new MemStorage();
