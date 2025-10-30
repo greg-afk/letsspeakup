@@ -50,14 +50,14 @@ export function GameCard({ card, isSelected, onClick }: GameCardProps) {
       </div>
 
       {/* Card Value */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className={cn(
-          "text-4xl md:text-5xl font-bold",
-          deckTextColors[card.deckNumber as keyof typeof deckTextColors]
-        )}>
-          {card.value}
-        </span>
-      </div>
+<div className="absolute inset-0 flex items-center justify-center p-2">
+  <div className={cn(
+    "text-xs md:text-sm font-medium text-center overflow-y-auto max-h-full w-full",
+    deckTextColors[card.deckNumber as keyof typeof deckTextColors]
+  )}>
+    {card.value}
+  </div>
+</div>
 
       {/* Bottom Deck Number */}
       <div className="absolute bottom-2 right-2">
