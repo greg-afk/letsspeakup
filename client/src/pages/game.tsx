@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { getSocket, connectSocket, disconnectSocket } from "@/lib/socket";
@@ -17,7 +18,8 @@ import { WaitingRoom } from "@/components/waiting-room";
 export default function Game() {
   const [, params] = useRoute("/game/:roomCode");
   const [, setLocation] = useLocation();
-  const roomCode = params?.roomCode || "";
+  const roomCode = params?.roomCode ?? "";
+
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string>("");
   const [selectedCards, setSelectedCards] = useState<{
@@ -36,42 +38,34 @@ export default function Game() {
 
     connectSocket();
     const socket = getSocket();
+    setMyPlayerId(socket.id);
 
-    // Store player ID from socket
-    setMyPlayerId(socket.id || "");
-
-// ✅ Emit join_room with roomCode and playerName
-  const playerName = prompt("Enter your name"); // or use a form value
-  socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
-    if (!success) {
+    const playerName = prompt("Enter your name");
+    if (!playerName?.trim()) {
       toast({
         variant: "destructive",
-        title: "Failed to join room",
-        description: error || "Unknown error",
+        title: "Missing name",
+        description: "Please enter a valid name to join the game.",
       });
       setLocation("/");
+      return;
     }
-  });
 
-  socket.on("game_state", (state: GameState) => {
-    setGameState(state);
-  });
+    socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
+      if (!success) {
+        toast({
+          variant: "destructive",
+          title: "Failed to join room",
+          description: error || "Unknown error",
+        });
+        setLocation("/");
+      }
+    });
 
-  // other socket listeners...
-
-  return () => {
-    socket.off("game_state");
-    // other cleanup...
-    disconnectSocket();
-  };
-}, [roomCode, setLocation, toast]);
-
-    // Listen for game state updates
     socket.on("game_state", (state: GameState) => {
       setGameState(state);
     });
 
-    // Listen for errors
     socket.on("error", (message: string) => {
       toast({
         variant: "destructive",
@@ -80,7 +74,6 @@ export default function Game() {
       });
     });
 
-    // Listen for player events
     socket.on("player_joined", (playerName: string) => {
       toast({
         title: "Player joined",
@@ -120,8 +113,6 @@ export default function Game() {
 
   const handleCardSelect = (card: CardType) => {
     const deckKey = `deck${card.deckNumber}` as keyof typeof selectedCards;
-    
-    // Toggle selection
     if (selectedCards[deckKey]?.id === card.id) {
       setSelectedCards((prev) => ({ ...prev, [deckKey]: undefined }));
     } else {
@@ -138,13 +129,11 @@ export default function Game() {
       });
       return;
     }
-
     const cardSet: CardSet = {
       deck1Card: selectedCards.deck1,
       deck2Card: selectedCards.deck2,
       deck3Card: selectedCards.deck3,
     };
-
     const socket = getSocket();
     socket.emit("select_cards", cardSet, rating);
     setSelectedCards({});
@@ -159,15 +148,7 @@ export default function Game() {
     const socket = getSocket();
     socket.emit("next_round");
   };
-if (gameState.phase === "revealing") {
-  socket.emit("next_round");
-} else {
-  toast({
-    title: "Cannot start next round",
-    description: "Wait until all ratings are submitted.",
-    variant: "destructive",
-  });
-}
+
   if (!gameState) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -178,6 +159,7 @@ if (gameState.phase === "revealing") {
       </div>
     );
   }
+
 
   const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === myPlayerId;
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
