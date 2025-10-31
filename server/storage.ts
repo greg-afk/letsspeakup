@@ -151,7 +151,7 @@ export class MemStorage {
     };
   }
 
-  selectCards(roomCode: string, playerId: string, cards: CardSet, rating: "good" | "bad"): boolean {
+  selectCards(roomCode: string, playerId: string, cards: CardSet, rating: "promotes" | "hinders"): boolean {
     const room = this.rooms.get(roomCode);
     if (!room || room.phase !== "selecting") return false;
     const currentPlayer = room.players[room.currentPlayerIndex];
@@ -164,7 +164,7 @@ export class MemStorage {
     return true;
   }
 
-  submitRating(roomCode: string, playerId: string, rating: "good" | "bad"): boolean {
+  submitRating(roomCode: string, playerId: string, rating: "promotes" | "hinders"): boolean {
     const room = this.rooms.get(roomCode);
     if (!room || room.phase !== "rating") return false;
     const currentPlayer = room.players[room.currentPlayerIndex];
