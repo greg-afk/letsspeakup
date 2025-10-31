@@ -7,6 +7,16 @@ import Home from "@/pages/home";
 import Game from "@/pages/game";
 import NotFound from "@/pages/not-found";
 
+import Facilitator from "./pages/Facilitator";
+
+const Routes = () => (
+  <Switch>
+    <Route path="/game/:roomCode" component={Game} />
+    <Route path="/facilitator/:roomCode" component={Facilitator} />
+    {/* other routes */}
+  </Switch>
+);
+
 function Router() {
   return (
     <Switch>
