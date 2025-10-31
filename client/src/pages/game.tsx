@@ -40,6 +40,32 @@ export default function Game() {
     // Store player ID from socket
     setMyPlayerId(socket.id || "");
 
+// ✅ Emit join_room with roomCode and playerName
+  const playerName = prompt("Enter your name"); // or use a form value
+  socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
+    if (!success) {
+      toast({
+        variant: "destructive",
+        title: "Failed to join room",
+        description: error || "Unknown error",
+      });
+      setLocation("/");
+    }
+  });
+
+  socket.on("game_state", (state: GameState) => {
+    setGameState(state);
+  });
+
+  // other socket listeners...
+
+  return () => {
+    socket.off("game_state");
+    // other cleanup...
+    disconnectSocket();
+  };
+}, [roomCode, setLocation, toast]);
+
 // ✅ Tell backend which room to join
   socket.emit("join_room", roomCode);
 
