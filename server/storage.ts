@@ -1,6 +1,23 @@
 import type { Card, Player, GameState, CardSet } from "@shared/schema";
 import { randomUUID } from "crypto";
 
+// ---------- Helpers ----------
+function shuffle<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function sampleWithoutReplacement<T>(arr: T[], n: number): T[] {
+  if (n <= 0) return [];
+  if (n >= arr.length) return shuffle(arr);
+  return shuffle(arr).slice(0, n);
+}
+
+// ---------- Room / Deck Data ----------
 export function generateRoomCode(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
@@ -47,17 +64,15 @@ const deckValues: Record<number, string[]> = {
   ],
 };
 
+// --- RANDOMIZED deck creation ---
 export function createDeck(deckNumber: number, count: number): Card[] {
   const values = deckValues[deckNumber];
-  const cards: Card[] = [];
-  for (let i = 0; i < count; i++) {
-    cards.push({
-      id: randomUUID(),
-      deckNumber,
-      value: values[i % values.length],
-    });
-  }
-  return cards;
+  const picks = sampleWithoutReplacement(values, count);
+  return picks.map((value) => ({
+    id: randomUUID(),
+    deckNumber,
+    value,
+  }));
 }
 
 type AddOrReconnectResult =
@@ -100,14 +115,14 @@ export class MemStorage {
     const room = this.rooms.get(roomCode);
     if (!room) return { ok: false, reason: "not_found" };
 
-    // If the same socket is already present, mark connected and return
+    // Already present by id (e.g., quick reconnect event ordering)
     const existingById = room.players.find((p) => p.id === socketId);
     if (existingById) {
       existingById.isConnected = true;
       return { ok: true, action: "already_member" };
     }
 
-    // If name matches a player who is currently disconnected, treat as reconnection
+    // Reclaim previous (same-name) disconnected slot
     const existingByName = room.players.find((p) => p.name === playerName);
     if (existingByName && existingByName.isConnected === false) {
       existingByName.id = socketId;
@@ -115,20 +130,15 @@ export class MemStorage {
       return { ok: true, action: "reconnected" };
     }
 
-    // Active duplicate name is not allowed (prevents two "Anonymous" in-room clashes)
+    // Active duplicate name isn't allowed
     if (existingByName && existingByName.isConnected) {
       return { ok: false, reason: "duplicate_name" };
     }
 
     // Room constraints
-    if (room.players.length >= room.maxPlayers) {
-      return { ok: false, reason: "full" };
-    }
-    if (room.phase !== "waiting") {
-      return { ok: false, reason: "not_waiting" };
-    }
+    if (room.players.length >= room.maxPlayers) return { ok: false, reason: "full" };
+    if (room.phase !== "waiting") return { ok: false, reason: "not_waiting" };
 
-    // Add as a new player
     room.players.push({ id: socketId, name: playerName, isConnected: true });
     return { ok: true, action: "joined" };
   }
@@ -161,30 +171,44 @@ export class MemStorage {
   }
 
   private dealCardsToCurrentPlayer(room: GameState): void {
-    let unique = false;
-    let deck1: Card[], deck2: Card[], deck3: Card[];
-    let comboKey: string;
-    while (!unique) {
-      deck1 = createDeck(1, 4);
-      deck2 = createDeck(2, 1);
-      deck3 = createDeck(3, 1);
-      comboKey = [
+    const MAX_TRIES = 500; // defensive guard — you shouldn't hit this
+    for (let tries = 0; tries < MAX_TRIES; tries++) {
+      const deck1 = createDeck(1, 4);
+      const deck2 = createDeck(2, 1);
+      const deck3 = createDeck(3, 1);
+
+      const comboKey = [
         ...deck1.map((c) => c.value),
         ...deck2.map((c) => c.value),
         ...deck3.map((c) => c.value),
       ]
         .sort()
         .join("\n");
+
       if (!room.usedCombinations.has(comboKey)) {
-        unique = true;
         room.usedCombinations.add(comboKey);
+        room.activePlayerHand = { deck1, deck2, deck3 };
+        return;
       }
     }
-    room.activePlayerHand = {
-      deck1: deck1!,
-      deck2: deck2!,
-      deck3: deck3!,
-    };
+
+    // If we somehow exhausted MAX_TRIES (extremely unlikely), reset the set and try once more.
+    console.warn(
+      `[MemStorage] Ran out of unique combinations for room ${room.roomCode}. Resetting usedCombinations.`
+    );
+    room.usedCombinations = new Set();
+    const deck1 = createDeck(1, 4);
+    const deck2 = createDeck(2, 1);
+    const deck3 = createDeck(3, 1);
+    const comboKey = [
+      ...deck1.map((c) => c.value),
+      ...deck2.map((c) => c.value),
+      ...deck3.map((c) => c.value),
+    ]
+      .sort()
+      .join("\n");
+    room.usedCombinations.add(comboKey);
+    room.activePlayerHand = { deck1, deck2, deck3 };
   }
 
   selectCards(
@@ -216,7 +240,11 @@ export class MemStorage {
     if (room.ratings.some((r) => r.playerId === playerId)) return false;
 
     room.ratings.push({ playerId, rating });
-    if (room.ratings.length === room.players.length) room.phase = "revealing";
+
+    // When everyone (including the active player who auto-rated) has a rating, reveal
+    if (room.ratings.length === room.players.length) {
+      room.phase = "revealing";
+    }
     return true;
   }
 
@@ -225,12 +253,8 @@ export class MemStorage {
     if (!room || room.phase !== "revealing") return false;
 
     room.ratings = [];
-    room.selectedCards = {
-      deck1Card: null,
-      deck2Card: null,
-      deck3Card: null,
-    };
-    room.activePlayerRating = "";
+    room.selectedCards = undefined;         // clear selected cards for new round
+    room.activePlayerRating = "";           // clear active player's rating
     room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
     if (room.currentPlayerIndex === 0) room.round++;
     room.phase = "selecting";
@@ -247,3 +271,4 @@ export class MemStorage {
 }
 
 export const storage = new MemStorage();
+``
