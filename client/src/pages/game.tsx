@@ -19,14 +19,11 @@ export default function Game() {
   const [, params] = useRoute("/game/:roomCode");
   const [, setLocation] = useLocation();
   const roomCode = params?.roomCode ?? "";
+  const isCreated = new URLSearchParams(window.location.search).get("created") === "true";
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string>("");
-  const [selectedCards, setSelectedCards] = useState<{
-    deck1?: CardType;
-    deck2?: CardType;
-    deck3?: CardType;
-  }>({});
+  const [selectedCards, setSelectedCards] = useState<{ deck1?: CardType; deck2?: CardType; deck3?: CardType }>({});
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
@@ -42,41 +39,33 @@ export default function Game() {
 
     const playerName = "Anonymous";
 
-    socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
-      if (!success) {
-        toast({
-          variant: "destructive",
-          title: "Failed to join room",
-          description: error || "Unknown error",
-        });
-        setLocation("/");
-      }
-    });
+    if (!isCreated) {
+      socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
+        if (!success) {
+          toast({
+            variant: "destructive",
+            title: "Failed to join room",
+            description: error ?? "Unknown error",
+          });
+          setLocation("/");
+        }
+      });
+    }
 
     socket.on("game_state", (state: GameState) => {
       setGameState(state);
     });
 
     socket.on("error", (message: string) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: message,
-      });
+      toast({ variant: "destructive", title: "Error", description: message });
     });
 
     socket.on("player_joined", (playerName: string) => {
-      toast({
-        title: "Player joined",
-        description: `${playerName} has joined the game.`,
-      });
+      toast({ title: "Player joined", description: `${playerName} has joined the game.` });
     });
 
     socket.on("player_left", (playerName: string) => {
-      toast({
-        title: "Player left",
-        description: `${playerName} has left the game.`,
-      });
+      toast({ title: "Player left", description: `${playerName} has left the game.` });
     });
 
     return () => {
@@ -87,6 +76,12 @@ export default function Game() {
       disconnectSocket();
     };
   }, [roomCode, setLocation, toast]);
+
+  useEffect(() => {
+    if (isCreated) {
+      window.history.replaceState({}, "", `/game/${roomCode}`);
+    }
+  }, [isCreated, roomCode]);
 
   const handleLeaveGame = () => {
     setLocation("/");
@@ -151,12 +146,10 @@ export default function Game() {
     );
   }
 
-
   const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === myPlayerId;
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const myRating = gameState.ratings.find((r) => r.playerId === myPlayerId);
   const allRatingsSubmitted = gameState.ratings.length === gameState.players.length;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       {/* Header */}
