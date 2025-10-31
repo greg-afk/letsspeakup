@@ -11,7 +11,6 @@ type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // Create Socket.IO server
   const io: TypedServer = new SocketIOServer(httpServer, {
     cors: {
       origin: "*",
@@ -19,7 +18,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   });
 
-  // Helper function to emit game state to all players in a room
   function emitGameState(roomCode: string): void {
     const gameState = storage.getRoom(roomCode);
     if (gameState) {
@@ -27,11 +25,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Socket.IO connection handling
   io.on("connection", (socket: TypedSocket) => {
     console.log(`[Socket.IO] Client connected: ${socket.id}`);
 
-    // Handle room creation
     socket.on("create_room", (playerName: string, callback: (roomCode: string) => void) => {
       try {
         const roomCode = storage.createRoom(socket.id, playerName);
@@ -45,28 +41,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
+    socket.on("join_room", (roomCode: string, playerName: string, callback: (success: boolean, error?: string) => void) => {
+      try {
+        const room = storage.getRoom(roomCode);
+        if (!room) {
+          callback(false, "Room not found");
+          return;
+        }
 
-socket.on("join_room", (roomCode: string, playerName: string, callback: (success: boolean, error?: string) => void) => {
-  try {
-    const room = storage.getRoom(roomCode);
-    if (!room) {
-      callback(false, "Room not found");
-      return;
-    }
+        let success = true;
 
-    let success = true;
+        if (playerName !== "Facilitator") {
+          success = storage.addPlayerToRoom(roomCode, socket.id, playerName);
+          if (!success) {
+            callback(false, "Unable to join room. Room may be full or game already started.");
+            return;
+          }
+          socket.to(roomCode).emit("player_joined", playerName);
+        }
 
-    // ✅ Facilitator bypasses player limits
-    if (playerName !== "Facilitator") {
-      success = storage.addPlayerToRoom(roomCode, socket.id, playerName);
-      if (!success) {
-        callback(false, "Unable to join room. Room may be full or game already started.");
-        return;
+        callback(true);
+        emitGameState(roomCode);
+      } catch (error) {
+        console.error("[Socket.IO] Error joining room:", error);
+        callback(false, "An error occurred while joining the room");
       }
-      socket.to(roomCode).emit("player_joined", playerName);
-    }
+    });
 
-    // ✅ Handle game start
     socket.on("start_game", () => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
@@ -89,7 +90,6 @@ socket.on("join_room", (roomCode: string, playerName: string, callback: (success
       }
     });
 
-    // Handle card selection
     socket.on("select_cards", (cards: CardSet, rating: "promotes" | "hinders") => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
@@ -112,7 +112,6 @@ socket.on("join_room", (roomCode: string, playerName: string, callback: (success
       }
     });
 
-    // Handle rating submission
     socket.on("submit_rating", (rating: "promotes" | "hinders") => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
@@ -135,7 +134,6 @@ socket.on("join_room", (roomCode: string, playerName: string, callback: (success
       }
     });
 
-    // Handle next round
     socket.on("next_round", () => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
@@ -158,27 +156,24 @@ socket.on("join_room", (roomCode: string, playerName: string, callback: (success
       }
     });
 
-    // Handle disconnection
-    
-socket.on("disconnect", () => {
-  console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
-  try {
-    const gameState = storage.getRoomByPlayerId(socket.id);
-    if (gameState) {
-      const player = gameState.players.find(p => p.id === socket.id);
-      if (player) {
-        console.log(`[Socket.IO] Disconnecting player: ${player.name} from room ${gameState.roomCode}`);
-        storage.updatePlayerConnection(gameState.roomCode, socket.id, false);
-        socket.to(gameState.roomCode).emit("player_left", player.name);
-        emitGameState(gameState.roomCode);
+    socket.on("disconnect", () => {
+      console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
+      try {
+        const gameState = storage.getRoomByPlayerId(socket.id);
+        if (gameState) {
+          const player = gameState.players.find(p => p.id === socket.id);
+          if (player) {
+            console.log(`[Socket.IO] Disconnecting player: ${player.name} from room ${gameState.roomCode}`);
+            storage.updatePlayerConnection(gameState.roomCode, socket.id, false);
+            socket.to(gameState.roomCode).emit("player_left", player.name);
+            emitGameState(gameState.roomCode);
+          }
+        }
+      } catch (error) {
+        console.error("[Socket.IO] Error handling disconnect:", error);
       }
-    }
-  } catch (error) {
-    console.error("[Socket.IO] Error handling disconnect:", error);
-  }
-});
-
-
+    });
+  });
 
   return httpServer;
 }
