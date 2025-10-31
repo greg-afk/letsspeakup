@@ -67,8 +67,6 @@ export default function Game() {
 }, [roomCode, setLocation, toast]);
 
 // ✅ Tell backend which room to join
-  socket.emit("join_room", roomCode);
-
   socket.on("game_state", (state: GameState) => {
     setGameState(state);
   });
