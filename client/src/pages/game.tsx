@@ -40,6 +40,44 @@ export default function Game() {
     // Store player ID from socket
     setMyPlayerId(socket.id || "");
 
+// ✅ Tell backend which room to join
+  socket.emit("join_room", roomCode);
+
+  socket.on("game_state", (state: GameState) => {
+    setGameState(state);
+  });
+
+  socket.on("error", (message: string) => {
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: message,
+    });
+  });
+
+  socket.on("player_joined", (playerName: string) => {
+    toast({
+      title: "Player joined",
+      description: `${playerName} has joined the game.`,
+    });
+  });
+
+  socket.on("player_left", (playerName: string) => {
+    toast({
+      title: "Player left",
+      description: `${playerName} has left the game.`,
+    });
+  });
+
+  return () => {
+    socket.off("game_state");
+    socket.off("error");
+    socket.off("player_joined");
+    socket.off("player_left");
+    disconnectSocket();
+  };
+}, [roomCode, setLocation, toast]);
+
     // Listen for game state updates
     socket.on("game_state", (state: GameState) => {
       setGameState(state);
