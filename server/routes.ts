@@ -45,7 +45,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    // Handle room joining
 
 socket.on("join_room", (roomCode: string, playerName: string, callback: (success: boolean, error?: string) => void) => {
   try {
@@ -66,17 +65,6 @@ socket.on("join_room", (roomCode: string, playerName: string, callback: (success
       }
       socket.to(roomCode).emit("player_joined", playerName);
     }
-
-    socket.join(roomCode);
-    console.log(`[Socket.IO] ${playerName} joined room ${roomCode}`);
-    callback(true);
-    emitGameState(roomCode);
-  } catch (error) {
-    console.error("[Socket.IO] Error joining room:", error);
-    callback(false, "An error occurred while joining the room");
-  }
-});
-
 
     // ✅ Handle game start
     socket.on("start_game", () => {
