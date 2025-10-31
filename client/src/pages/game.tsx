@@ -33,27 +33,40 @@ export default function Game() {
       return;
     }
 
-    connectSocket();
-    const socket = getSocket();
-    setMyPlayerId(socket.id);
+  
+connectSocket();
+const socket = getSocket();
 
-    const playerName = "Anonymous";
+const doJoin = () => {
+  setMyPlayerId(socket.id);
+  const params = new URLSearchParams(window.location.search);
+  const playerName = params.get("name") ?? "Anonymous";
+  socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
+    if (!success) {
+      toast({ variant: "destructive", title: "Failed to join room", description: error ?? "Unknown error" });
+      setLocation("/");
+    }
+  });
+};
 
-    
-if (!isCreated && socket.connected) {
-  setTimeout(() => {
-    socket.emit("join_room", roomCode, playerName, (success, error) => {
-      if (!success) {
-        toast({
-          variant: "destructive",
-          title: "Failed to join room",
-          description: error ?? "Unknown error",
-        });
-        setLocation("/");
-      }
-    });
-  }, 100); // small delay to ensure socket is ready
+if (!isCreated) {
+  if (socket.connected) {
+    doJoin();
+  } else {
+    socket.once("connect", doJoin);  // <-- ensure we actually send join when the socket connects
+  }
 }
+
+// Resubscribe on reconnect (e.g., transient network loss)
+socket.io.on("reconnect", doJoin);
+
+// Remember to clean up in the effect cleanup:
+return () => {
+  socket.off("connect", doJoin);
+  socket.io.off("reconnect", doJoin);
+  ...
+};
+
 
 
     socket.on("game_state", (state: GameState) => {
