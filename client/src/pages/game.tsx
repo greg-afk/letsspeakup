@@ -133,7 +133,15 @@ export default function Game() {
     const socket = getSocket();
     socket.emit("next_round");
   };
-
+if (gameState.phase === "revealing") {
+  socket.emit("next_round");
+} else {
+  toast({
+    title: "Cannot start next round",
+    description: "Wait until all ratings are submitted.",
+    variant: "destructive",
+  });
+}
   if (!gameState) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -347,7 +355,7 @@ export default function Game() {
                   <p className="text-sm text-muted-foreground">
                     {isMyTurn 
                       ? "Waiting for others to rate your set..." 
-                      : "Rate this card set - does it promote or hinder?"}
+                      : "Rate this card set - does it promote or hinder psychological safety?"}
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -381,7 +389,7 @@ export default function Game() {
                   {myRating && (
                     <div className="text-center py-4">
                       <Badge variant="outline" className="text-sm">
-                        You rated this as: <span className="font-semibold ml-1 capitalize">{myRating.rating}</span>
+                       You rated this as: <span>{myRating.rating === "good" ? "Promotes" : "Hinders"}</span>
                       </Badge>
                       <p className="text-sm text-muted-foreground mt-2">
                         Waiting for other players... ({gameState.ratings.length}/{gameState.players.length})
