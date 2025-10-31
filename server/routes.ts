@@ -54,6 +54,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
 
+socket.on("join_room", (roomCode: string, playerName: string, callback: (success: boolean, error?: string) => void) => {
+  try {
+    const room = storage.getRoom(roomCode);
+    if (!room) {
+      callback(false, "Room not found");
+      return;
+    }
+
+    let success = true;
+
+    if (playerName !== "Facilitator") {
+      success = storage.addPlayerToRoom(roomCode, socket.id, playerName);
+      if (!success) {
+        callback(false, "Unable to join room. Room may be full or game already started.");
+        return;
+      }
+      socket.to(roomCode).emit("player_joined", playerName);
+    }
+
+    socket.join(roomCode);
+    console.log(`[Socket.IO] ${playerName} joined room ${roomCode}`);
+    callback(true);
+    emitGameState(roomCode);
+  } catch (error) {
+    console.error("[Socket.IO] Error joining room:", error);
+    callback(false, "An error occurred while joining the room");
+  }
+});
+
         const success = storage.addPlayerToRoom(roomCode, socket.id, playerName);
         if (!success) {
           callback(false, "Unable to join room. Room may be full or game already started.");
