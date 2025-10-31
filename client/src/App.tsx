@@ -7,7 +7,7 @@ import Home from "@/pages/home";
 import Game from "@/pages/game";
 import NotFound from "@/pages/not-found";
 
-import Facilitator from "./pages/Facilitator";
+import Facilitator from "./pages/facilitator";
 
 const Routes = () => (
   <Switch>
