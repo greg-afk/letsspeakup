@@ -1,5 +1,4 @@
-
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { getSocket, connectSocket, disconnectSocket } from "@/lib/socket";
 import type { GameState, Card as CardType, CardSet } from "@shared/schema";
@@ -36,34 +35,24 @@ export default function Game() {
     connectSocket();
     const socket = getSocket();
 
-    // --- stable listeners (defined once inside the effect) ---
-    const onGameState = (state: GameState) => {
-      setGameState(state);
-    };
-    const onError = (message: string) => {
+    const onGameState = (state: GameState) => setGameState(state);
+    const onError = (message: string) =>
       toast({ variant: "destructive", title: "Error", description: message });
-    };
-    const onPlayerJoined = (playerName: string) => {
+    const onPlayerJoined = (playerName: string) =>
       toast({ title: "Player joined", description: `${playerName} has joined the game.` });
-    };
-    const onPlayerLeft = (playerName: string) => {
+    const onPlayerLeft = (playerName: string) =>
       toast({ title: "Player left", description: `${playerName} has left the game.` });
-    };
 
     socket.on("game_state", onGameState);
     socket.on("error", onError);
     socket.on("player_joined", onPlayerJoined);
     socket.on("player_left", onPlayerLeft);
 
-    // --- joining logic ---
     const doJoin = () => {
-      // socket.id is only available after connect/reconnect
+      // socket.id is valid after connect/reconnect
       setMyPlayerId(socket.id);
 
-      if (isCreated) {
-        // Host already joined server-side during create_room
-        return;
-      }
+      // Use name from URL if present; otherwise default to "Anonymous"
       const params = new URLSearchParams(window.location.search);
       const playerName = params.get("name") ?? "Anonymous";
 
@@ -80,14 +69,11 @@ export default function Game() {
     };
 
     if (socket.connected) {
-      // Immediate join if already connected
       doJoin();
     } else {
-      // Join once the socket connects
       socket.once("connect", doJoin);
     }
 
-    // Re-join after transient network issues
     socket.io.on("reconnect", doJoin);
 
     return () => {
@@ -99,18 +85,16 @@ export default function Game() {
       socket.io.off("reconnect", doJoin);
       disconnectSocket();
     };
-  }, [roomCode, isCreated, setLocation, toast]);
+  }, [roomCode, setLocation, toast]);
 
-  // Remove "?created=true" from the URL for a cleaner share link
+  // Remove "?created=true" to keep share link clean
   useEffect(() => {
     if (isCreated) {
       window.history.replaceState({}, "", `/game/${roomCode}`);
     }
   }, [isCreated, roomCode]);
 
-  const handleLeaveGame = () => {
-    setLocation("/");
-  };
+  const handleLeaveGame = () => setLocation("/");
 
   const handleCopyRoomCode = () => {
     navigator.clipboard.writeText(roomCode);
@@ -174,7 +158,6 @@ export default function Game() {
   const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === myPlayerId;
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const myRating = gameState.ratings.find((r) => r.playerId === myPlayerId);
-  const allRatingsSubmitted = gameState.ratings.length === gameState.players.length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -183,12 +166,7 @@ export default function Game() {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
-              <Button
-                data-testid="button-leave-game"
-                variant="ghost"
-                size="icon"
-                onClick={handleLeaveGame}
-              >
+              <Button data-testid="button-leave-game" variant="ghost" size="icon" onClick={handleLeaveGame}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
@@ -245,11 +223,7 @@ export default function Game() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <PlayerList
-                  players={gameState.players}
-                  currentPlayerId={currentPlayer?.id}
-                  myPlayerId={myPlayerId}
-                />
+                <PlayerList players={gameState.players} currentPlayerId={currentPlayer?.id} myPlayerId={myPlayerId} />
               </CardContent>
             </Card>
 
@@ -258,77 +232,36 @@ export default function Game() {
               <Card className="border-2">
                 <CardHeader>
                   <CardTitle>Select Your Cards</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Choose one card from each deck to create your set
-                  </p>
+                  <p className="text-sm text-muted-foreground">Choose one card from each deck to create your set</p>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Deck 1 */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        Statement Cards
-                      </Label>
-                      {selectedCards.deck1 && <Badge variant="outline" className="text-xs">Selected</Badge>}
-                    </div>
-                    <div className="flex gap-3 flex-wrap">
-                      {gameState.activePlayerHand.deck1.map((card) => (
-                        <GameCard
-                          key={card.id}
-                          card={card}
-                          isSelected={selectedCards.deck1?.id === card.id}
-                          onClick={() => handleCardSelect(card)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
+                  <DeckSection
+                    title="Statement Cards"
+                    selected={!!selectedCards.deck1}
+                    cards={gameState.activePlayerHand.deck1}
+                    isSelected={(c) => selectedCards.deck1?.id === c.id}
+                    onClick={handleCardSelect}
+                  />
                   <Separator />
-
                   {/* Deck 2 */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        Role Card
-                      </Label>
-                      {selectedCards.deck2 && <Badge variant="outline" className="text-xs">Selected</Badge>}
-                    </div>
-                    <div className="flex gap-3 flex-wrap">
-                      {gameState.activePlayerHand.deck2.map((card) => (
-                        <GameCard
-                          key={card.id}
-                          card={card}
-                          isSelected={selectedCards.deck2?.id === card.id}
-                          onClick={() => handleCardSelect(card)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
+                  <DeckSection
+                    title="Role Card"
+                    selected={!!selectedCards.deck2}
+                    cards={gameState.activePlayerHand.deck2}
+                    isSelected={(c) => selectedCards.deck2?.id === c.id}
+                    onClick={handleCardSelect}
+                  />
                   <Separator />
-
                   {/* Deck 3 */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        Context Card
-                      </Label>
-                      {selectedCards.deck3 && <Badge variant="outline" className="text-xs">Selected</Badge>}
-                    </div>
-                    <div className="flex gap-3 flex-wrap">
-                      {gameState.activePlayerHand.deck3.map((card) => (
-                        <GameCard
-                          key={card.id}
-                          card={card}
-                          isSelected={selectedCards.deck3?.id === card.id}
-                          onClick={() => handleCardSelect(card)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
+                  <DeckSection
+                    title="Context Card"
+                    selected={!!selectedCards.deck3}
+                    cards={gameState.activePlayerHand.deck3}
+                    isSelected={(c) => selectedCards.deck3?.id === c.id}
+                    onClick={handleCardSelect}
+                  />
                   <Separator />
-
                   <RatingPanel
                     onSubmit={handleSubmitCards}
                     disabled={!selectedCards.deck1 || !selectedCards.deck2 || !selectedCards.deck3}
@@ -361,9 +294,7 @@ export default function Game() {
             {gameState.phase === "rating" && gameState.selectedCards && (
               <Card className="border-2">
                 <CardHeader>
-                  <CardTitle>
-                    {isMyTurn ? "Your Card Set" : `${currentPlayer?.name}'s Card Set`}
-                  </CardTitle>
+                  <CardTitle>{isMyTurn ? "Your Card Set" : `${currentPlayer?.name}'s Card Set`}</CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {isMyTurn
                       ? "Waiting for others to rate your set..."
@@ -371,20 +302,10 @@ export default function Game() {
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Display Selected Cards */}
                   <div className="flex gap-4 justify-center flex-wrap">
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Statement</Label>
-                      <GameCard card={gameState.selectedCards.deck1Card} isSelected={false} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Role</Label>
-                      <GameCard card={gameState.selectedCards.deck2Card} isSelected={false} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Context</Label>
-                      <GameCard card={gameState.selectedCards.deck3Card} isSelected={false} />
-                    </div>
+                    <ShowCard label="Statement" card={gameState.selectedCards.deck1Card} />
+                    <ShowCard label="Role" card={gameState.selectedCards.deck2Card} />
+                    <ShowCard label="Context" card={gameState.selectedCards.deck3Card} />
                   </div>
 
                   {!isMyTurn && !myRating && (
@@ -427,3 +348,41 @@ export default function Game() {
 function Label({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={className}>{children}</div>;
 }
+
+function DeckSection({
+  title,
+  selected,
+  cards,
+  isSelected,
+  onClick,
+}: {
+  title: string;
+  selected: boolean;
+  cards: CardType[];
+  isSelected: (c: CardType) => boolean;
+  onClick: (c: CardType) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</Label>
+        {selected && <Badge variant="outline" className="text-xs">Selected</Badge>}
+      </div>
+      <div className="flex gap-3 flex-wrap">
+        {cards.map((card) => (
+          <GameCard key={card.id} card={card} isSelected={isSelected(card)} onClick={() => onClick(card)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ShowCard({ label, card }: { label: string; card: CardType | null }) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+      {card ? <GameCard card={card} isSelected={false} /> : <div className="text-sm text-muted-foreground">N/A</div>}
+    </div>
+  );
+}
+``
