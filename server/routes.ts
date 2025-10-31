@@ -1,3 +1,4 @@
+
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { Server as SocketIOServer, Socket } from "socket.io";
@@ -13,7 +14,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const io: TypedServer = new SocketIOServer(httpServer, {
     cors: {
-      origin: "*",
+      origin: "*", // if you have a fixed client origin on Render, set it here
       methods: ["GET", "POST"],
     },
   });
@@ -28,12 +29,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   io.on("connection", (socket: TypedSocket) => {
     console.log(`[Socket.IO] Client connected: ${socket.id}`);
 
+    // Host creates a room
     socket.on("create_room", (playerName: string, callback: (roomCode: string) => void) => {
       try {
         const roomCode = storage.createRoom(socket.id, playerName);
         socket.join(roomCode);
+
         console.log(`[Socket.IO] Room created: ${roomCode} by ${playerName}`);
+
+        // Send the room code back to the creator
         callback(roomCode);
+
+        // Send snapshot directly to host and also broadcast (host is already in the room)
+        const state = storage.getRoom(roomCode);
+        if (state) {
+          socket.emit("game_state", state);
+        }
         emitGameState(roomCode);
       } catch (error) {
         console.error("[Socket.IO] Error creating room:", error);
@@ -41,34 +52,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-  
-socket.on("join_room", (roomCode, playerName, callback) => {
-  try {
-    const room = storage.getRoom(roomCode);
-    if (!room) return callback(false, "Room not found");
+    // Player (or Facilitator) joins existing room
+    socket.on(
+      "join_room",
+      (roomCode: string, playerName: string, callback: (success: boolean, error?: string) => void) => {
+        try {
+          const room = storage.getRoom(roomCode);
+          if (!room) {
+            return callback(false, "Room not found");
+          }
 
-    // 1) Join the Socket.IO room so this socket receives room broadcasts
-    socket.join(roomCode);
+          // 1) Join the Socket.IO room so this socket receives room broadcasts
+          socket.join(roomCode);
 
-    // 2) Add to game state (players only)
-    if (playerName !== "Facilitator") {
-      const success = storage.addPlayerToRoom(roomCode, socket.id, playerName);
-      if (!success) {
-        // Avoid ghost membership if we joined above
-        socket.leave(roomCode);
-        return callback(false, "Unable to join room. Room may be full or game already started.");
+          // 2) Add to game state (players only). Facilitator is read-only observer.
+          if (playerName !== "Facilitator") {
+            const success = storage.addPlayerToRoom(roomCode, socket.id, playerName);
+            if (!success) {
+              // Avoid ghost membership if previously joined above
+              socket.leave(roomCode);
+              return callback(false, "Unable to join room. Room may be full or game already started.");
+            }
+
+            // Notify others in the room (not the joining socket)
+            socket.to(roomCode).emit("player_joined", playerName);
+          }
+
+          // 3) Acknowledge and push a fresh snapshot directly to the joiner
+          callback(true);
+
+          const state = storage.getRoom(roomCode);
+          if (state) {
+            socket.emit("game_state", state);
+          }
+
+          // 4) Also broadcast updated state to the room for consistency
+          emitGameState(roomCode);
+        } catch (error) {
+          console.error("[Socket.IO] Error joining room:", error);
+          callback(false, "An error occurred while joining the room");
+        }
       }
-      socket.to(roomCode).emit("player_joined", playerName);
-    }
+    );
 
-    // 3) Acknowledge + push fresh snapshot (the joiner now receives room broadcasts)
-    callback(true);
-    emitGameState(roomCode);
-  } catch (error) {
-    callback(false, "An error occurred while joining the room");
-  }
-});
-
+    // Start game (typically the host)
     socket.on("start_game", () => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
@@ -79,7 +106,10 @@ socket.on("join_room", (roomCode, playerName, callback) => {
 
         const success = storage.startGame(gameState.roomCode);
         if (!success) {
-          socket.emit("error", "Failed to start game. Make sure there are enough players and the game hasn't already started.");
+          socket.emit(
+            "error",
+            "Failed to start game. Make sure there are enough players and the game hasn't already started."
+          );
           return;
         }
 
@@ -91,6 +121,7 @@ socket.on("join_room", (roomCode, playerName, callback) => {
       }
     });
 
+    // Active player selects cards
     socket.on("select_cards", (cards: CardSet, rating: "promotes" | "hinders") => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
@@ -105,7 +136,9 @@ socket.on("join_room", (roomCode, playerName, callback) => {
           return;
         }
 
-        console.log(`[Socket.IO] Player ${socket.id} selected cards in room ${gameState.roomCode}`);
+        console.log(
+          `[Socket.IO] Player ${socket.id} selected cards in room ${gameState.roomCode}`
+        );
         emitGameState(gameState.roomCode);
       } catch (error) {
         console.error("[Socket.IO] Error selecting cards:", error);
@@ -113,6 +146,7 @@ socket.on("join_room", (roomCode, playerName, callback) => {
       }
     });
 
+    // Non-active players submit rating
     socket.on("submit_rating", (rating: "promotes" | "hinders") => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
@@ -127,7 +161,9 @@ socket.on("join_room", (roomCode, playerName, callback) => {
           return;
         }
 
-        console.log(`[Socket.IO] Player ${socket.id} submitted rating in room ${gameState.roomCode}`);
+        console.log(
+          `[Socket.IO] Player ${socket.id} submitted rating in room ${gameState.roomCode}`
+        );
         emitGameState(gameState.roomCode);
       } catch (error) {
         console.error("[Socket.IO] Error submitting rating:", error);
@@ -135,6 +171,7 @@ socket.on("join_room", (roomCode, playerName, callback) => {
       }
     });
 
+    // Move to next round
     socket.on("next_round", () => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
@@ -157,14 +194,17 @@ socket.on("join_room", (roomCode, playerName, callback) => {
       }
     });
 
+    // Disconnect handling
     socket.on("disconnect", () => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
         if (gameState) {
-          const player = gameState.players.find(p => p.id === socket.id);
+          const player = gameState.players.find((p) => p.id === socket.id);
           if (player) {
-            console.log(`[Socket.IO] Disconnecting player: ${player.name} from room ${gameState.roomCode}`);
+            console.log(
+              `[Socket.IO] Disconnecting player: ${player.name} from room ${gameState.roomCode}`
+            );
             storage.updatePlayerConnection(gameState.roomCode, socket.id, false);
             socket.to(gameState.roomCode).emit("player_left", player.name);
             emitGameState(gameState.roomCode);
