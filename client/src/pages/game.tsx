@@ -39,18 +39,22 @@ export default function Game() {
 
     const playerName = "Anonymous";
 
-    if (!isCreated) {
-      socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
-        if (!success) {
-          toast({
-            variant: "destructive",
-            title: "Failed to join room",
-            description: error ?? "Unknown error",
-          });
-          setLocation("/");
-        }
-      });
-    }
+    
+if (!isCreated && socket.connected) {
+  setTimeout(() => {
+    socket.emit("join_room", roomCode, playerName, (success, error) => {
+      if (!success) {
+        toast({
+          variant: "destructive",
+          title: "Failed to join room",
+          description: error ?? "Unknown error",
+        });
+        setLocation("/");
+      }
+    });
+  }, 100); // small delay to ensure socket is ready
+}
+
 
     socket.on("game_state", (state: GameState) => {
       setGameState(state);
