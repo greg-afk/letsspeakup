@@ -103,7 +103,7 @@ export default function Game() {
     }
   };
 
-  const handleSubmitCards = (rating: "good" | "bad") => {
+  const handleSubmitCards = (rating: "promotes" | "hinders") => {
     if (!selectedCards.deck1 || !selectedCards.deck2 || !selectedCards.deck3) {
       toast({
         variant: "destructive",
@@ -124,7 +124,7 @@ export default function Game() {
     setSelectedCards({});
   };
 
-  const handleSubmitRating = (rating: "good" | "bad") => {
+  const handleSubmitRating = (rating: "promotes" | "hinders") => {
     const socket = getSocket();
     socket.emit("submit_rating", rating);
   };
@@ -347,22 +347,22 @@ export default function Game() {
                   <p className="text-sm text-muted-foreground">
                     {isMyTurn 
                       ? "Waiting for others to rate your set..." 
-                      : "Rate this card set - does it look good or bad?"}
+                      : "Rate this card set - does it promote or hinder?"}
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Display Selected Cards */}
                   <div className="flex gap-4 justify-center flex-wrap">
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Deck 1</Label>
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Statement</Label>
                       <GameCard card={gameState.selectedCards.deck1Card} isSelected={false} />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Deck 2</Label>
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Role</Label>
                       <GameCard card={gameState.selectedCards.deck2Card} isSelected={false} />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Deck 3</Label>
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Context</Label>
                       <GameCard card={gameState.selectedCards.deck3Card} isSelected={false} />
                     </div>
                   </div>
