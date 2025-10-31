@@ -95,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Handle card selection
-    socket.on("select_cards", (cards: CardSet, rating: "good" | "bad") => {
+    socket.on("select_cards", (cards: CardSet, rating: "promotes" | "hinders") => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
         if (!gameState) {
@@ -118,7 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Handle rating submission
-    socket.on("submit_rating", (rating: "good" | "bad") => {
+    socket.on("submit_rating", (rating: "promotes" | "hinders") => {
       try {
         const gameState = storage.getRoomByPlayerId(socket.id);
         if (!gameState) {
