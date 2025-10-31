@@ -90,8 +90,10 @@ export class MemStorage {
 
   addPlayerToRoom(roomCode: string, playerId: string, playerName: string): boolean {
     const room = this.rooms.get(roomCode);
+      if (playerName === "Facilitator") return true;
     if (!room || room.players.length >= room.maxPlayers || room.phase !== "waiting") return false;
     if (room.players.some(p => p.id === playerId)) return false;
+    
     room.players.push({ id: playerId, name: playerName, isConnected: true });
     return true;
   }
