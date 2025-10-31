@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
 import { getSocket, connectSocket, disconnectSocket } from "@/lib/socket";
 import type { GameState, Card as CardType, CardSet } from "@shared/schema";
@@ -33,67 +33,75 @@ export default function Game() {
       return;
     }
 
-  
-connectSocket();
-const socket = getSocket();
+    connectSocket();
+    const socket = getSocket();
 
-const doJoin = () => {
-  setMyPlayerId(socket.id);
-  const params = new URLSearchParams(window.location.search);
-  const playerName = params.get("name") ?? "Anonymous";
-  socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
-    if (!success) {
-      toast({ variant: "destructive", title: "Failed to join room", description: error ?? "Unknown error" });
-      setLocation("/");
-    }
-  });
-};
-
-if (!isCreated) {
-  if (socket.connected) {
-    doJoin();
-  } else {
-    socket.once("connect", doJoin);  // <-- ensure we actually send join when the socket connects
-  }
-}
-
-// Resubscribe on reconnect (e.g., transient network loss)
-socket.io.on("reconnect", doJoin);
-
-// Remember to clean up in the effect cleanup:
-return () => {
-  socket.off("connect", doJoin);
-  socket.io.off("reconnect", doJoin);
-  ...
-};
-
-
-
-    socket.on("game_state", (state: GameState) => {
+    // --- stable listeners (defined once inside the effect) ---
+    const onGameState = (state: GameState) => {
       setGameState(state);
-    });
-
-    socket.on("error", (message: string) => {
+    };
+    const onError = (message: string) => {
       toast({ variant: "destructive", title: "Error", description: message });
-    });
-
-    socket.on("player_joined", (playerName: string) => {
+    };
+    const onPlayerJoined = (playerName: string) => {
       toast({ title: "Player joined", description: `${playerName} has joined the game.` });
-    });
-
-    socket.on("player_left", (playerName: string) => {
+    };
+    const onPlayerLeft = (playerName: string) => {
       toast({ title: "Player left", description: `${playerName} has left the game.` });
-    });
+    };
+
+    socket.on("game_state", onGameState);
+    socket.on("error", onError);
+    socket.on("player_joined", onPlayerJoined);
+    socket.on("player_left", onPlayerLeft);
+
+    // --- joining logic ---
+    const doJoin = () => {
+      // socket.id is only available after connect/reconnect
+      setMyPlayerId(socket.id);
+
+      if (isCreated) {
+        // Host already joined server-side during create_room
+        return;
+      }
+      const params = new URLSearchParams(window.location.search);
+      const playerName = params.get("name") ?? "Anonymous";
+
+      socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
+        if (!success) {
+          toast({
+            variant: "destructive",
+            title: "Failed to join room",
+            description: error ?? "Unknown error",
+          });
+          setLocation("/");
+        }
+      });
+    };
+
+    if (socket.connected) {
+      // Immediate join if already connected
+      doJoin();
+    } else {
+      // Join once the socket connects
+      socket.once("connect", doJoin);
+    }
+
+    // Re-join after transient network issues
+    socket.io.on("reconnect", doJoin);
 
     return () => {
-      socket.off("game_state");
-      socket.off("error");
-      socket.off("player_joined");
-      socket.off("player_left");
+      socket.off("game_state", onGameState);
+      socket.off("error", onError);
+      socket.off("player_joined", onPlayerJoined);
+      socket.off("player_left", onPlayerLeft);
+      socket.off("connect", doJoin);
+      socket.io.off("reconnect", doJoin);
       disconnectSocket();
     };
-  }, [roomCode, setLocation, toast]);
+  }, [roomCode, isCreated, setLocation, toast]);
 
+  // Remove "?created=true" from the URL for a cleaner share link
   useEffect(() => {
     if (isCreated) {
       window.history.replaceState({}, "", `/game/${roomCode}`);
@@ -167,6 +175,7 @@ return () => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const myRating = gameState.ratings.find((r) => r.playerId === myPlayerId);
   const allRatingsSubmitted = gameState.ratings.length === gameState.players.length;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       {/* Header */}
@@ -260,9 +269,7 @@ return () => {
                       <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                         Statement Cards
                       </Label>
-                      {selectedCards.deck1 && (
-                        <Badge variant="outline" className="text-xs">Selected</Badge>
-                      )}
+                      {selectedCards.deck1 && <Badge variant="outline" className="text-xs">Selected</Badge>}
                     </div>
                     <div className="flex gap-3 flex-wrap">
                       {gameState.activePlayerHand.deck1.map((card) => (
@@ -284,9 +291,7 @@ return () => {
                       <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                         Role Card
                       </Label>
-                      {selectedCards.deck2 && (
-                        <Badge variant="outline" className="text-xs">Selected</Badge>
-                      )}
+                      {selectedCards.deck2 && <Badge variant="outline" className="text-xs">Selected</Badge>}
                     </div>
                     <div className="flex gap-3 flex-wrap">
                       {gameState.activePlayerHand.deck2.map((card) => (
@@ -308,9 +313,7 @@ return () => {
                       <Label className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                         Context Card
                       </Label>
-                      {selectedCards.deck3 && (
-                        <Badge variant="outline" className="text-xs">Selected</Badge>
-                      )}
+                      {selectedCards.deck3 && <Badge variant="outline" className="text-xs">Selected</Badge>}
                     </div>
                     <div className="flex gap-3 flex-wrap">
                       {gameState.activePlayerHand.deck3.map((card) => (
@@ -362,8 +365,8 @@ return () => {
                     {isMyTurn ? "Your Card Set" : `${currentPlayer?.name}'s Card Set`}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {isMyTurn 
-                      ? "Waiting for others to rate your set..." 
+                    {isMyTurn
+                      ? "Waiting for others to rate your set..."
                       : "Rate this card set - does it promote or hinder psychological safety?"}
                   </p>
                 </CardHeader>
@@ -387,18 +390,14 @@ return () => {
                   {!isMyTurn && !myRating && (
                     <>
                       <Separator />
-                      <RatingPanel
-                        onSubmit={handleSubmitRating}
-                        disabled={false}
-                        title="Submit your rating"
-                      />
+                      <RatingPanel onSubmit={handleSubmitRating} disabled={false} title="Submit your rating" />
                     </>
                   )}
 
                   {myRating && (
                     <div className="text-center py-4">
                       <Badge variant="outline" className="text-sm">
-                       You rated this as: <span>{myRating.rating === "promotes" ? "Promotes" : "Hinders"}</span>
+                        You rated this as: <span>{myRating.rating === "promotes" ? "Promotes" : "Hinders"}</span>
                       </Badge>
                       <p className="text-sm text-muted-foreground mt-2">
                         Waiting for other players... ({gameState.ratings.length}/{gameState.players.length})
