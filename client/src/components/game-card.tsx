@@ -36,12 +36,6 @@ export function GameCard({ card, isSelected, onClick }: GameCardProps) {
     >
       {/* Deck Number Badge */}
       <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
-        <span className={cn(
-          "text-xs font-semibold px-2 py-0.5 rounded-md bg-background/80 backdrop-blur-sm",
-          deckTextColors[card.deckNumber as keyof typeof deckTextColors]
-        )}>
-          D{card.deckNumber}
-        </span>
         {isSelected && (
           <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-primary text-primary-foreground">
             ✓
@@ -59,15 +53,7 @@ export function GameCard({ card, isSelected, onClick }: GameCardProps) {
   </div>
 </div>
 
-      {/* Bottom Deck Number */}
-      <div className="absolute bottom-2 right-2">
-        <span className={cn(
-          "text-xs font-semibold px-2 py-0.5 rounded-md bg-background/80 backdrop-blur-sm",
-          deckTextColors[card.deckNumber as keyof typeof deckTextColors]
-        )}>
-          D{card.deckNumber}
-        </span>
-      </div>
+      
     </button>
   );
 }
