@@ -1,8 +1,15 @@
+
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Users, Play, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -25,14 +32,12 @@ export default function Home() {
       });
       return;
     }
-
     setIsCreating(true);
     connectSocket();
     const socket = getSocket();
-
     socket.emit("create_room", playerName.trim(), (newRoomCode: string) => {
       setIsCreating(false);
-      setLocation(`/game/${newRoomCode}`);
+      setLocation(`/game/${newRoomCode}?created=true`); // ✅ updated with created=true
     });
   };
 
@@ -45,7 +50,6 @@ export default function Home() {
       });
       return;
     }
-
     if (!roomCode.trim()) {
       toast({
         variant: "destructive",
@@ -54,26 +58,30 @@ export default function Home() {
       });
       return;
     }
-
     setIsJoining(true);
     connectSocket();
     const socket = getSocket();
-
-    socket.emit("join_room", roomCode.trim().toUpperCase(), playerName.trim(), (success: boolean, error?: string) => {
-      setIsJoining(false);
-      if (success) {
-        setLocation(`/game/${roomCode.trim().toUpperCase()}`);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Failed to join room",
-          description: error || "Unable to join the game room. Please try again.",
-        });
+    socket.emit(
+      "join_room",
+      roomCode.trim().toUpperCase(),
+      playerName.trim(),
+      (success: boolean, error?: string) => {
+        setIsJoining(false);
+        if (success) {
+          setLocation(`/game/${roomCode.trim().toUpperCase()}`);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Failed to join room",
+            description: error ?? "Unable to join the game room. Please try again.",
+          });
+        }
       }
-    });
+    );
   };
 
   return (
+
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <div className="w-full max-w-2xl space-y-8">
         {/* Header */}
