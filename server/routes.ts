@@ -46,13 +46,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Handle room joining
-    socket.on("join_room", (roomCode: string, playerName: string, callback: (success: boolean, error?: string) => void) => {
-      try {
-        const room = storage.getRoom(roomCode);
-        if (!room) {
-          callback(false, "Room not found");
-          return;
-        }
 
 socket.on("join_room", (roomCode: string, playerName: string, callback: (success: boolean, error?: string) => void) => {
   try {
@@ -64,6 +57,7 @@ socket.on("join_room", (roomCode: string, playerName: string, callback: (success
 
     let success = true;
 
+    // ✅ Facilitator bypasses player limits
     if (playerName !== "Facilitator") {
       success = storage.addPlayerToRoom(roomCode, socket.id, playerName);
       if (!success) {
@@ -83,22 +77,6 @@ socket.on("join_room", (roomCode: string, playerName: string, callback: (success
   }
 });
 
-        const success = storage.addPlayerToRoom(roomCode, socket.id, playerName);
-        if (!success) {
-          callback(false, "Unable to join room. Room may be full or game already started.");
-          return;
-        }
-
-        socket.join(roomCode);
-        console.log(`[Socket.IO] Player ${playerName} joined room ${roomCode}`);
-        socket.to(roomCode).emit("player_joined", playerName);
-        callback(true);
-        emitGameState(roomCode);
-      } catch (error) {
-        console.error("[Socket.IO] Error joining room:", error);
-        callback(false, "An error occurred while joining the room");
-      }
-    });
 
     // ✅ Handle game start
     socket.on("start_game", () => {
@@ -215,3 +193,4 @@ socket.on("disconnect", () => {
 
   return httpServer;
 }
+})
