@@ -164,24 +164,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Handle disconnection
-    socket.on("disconnect", () => {
-      console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
-      try {
-        const gameState = storage.getRoomByPlayerId(socket.id);
-        if (gameState) {
-          const player = gameState.players.find(p => p.id === socket.id);
-          if (player) {
-            console.log(`[Socket.IO] Player ${player.name} disconnected from room ${gameState.roomCode}`);
-            storage.updatePlayerConnection(gameState.roomCode, socket.id, false);
-            socket.to(gameState.roomCode).emit("player_left", player.name);
-            emitGameState(gameState.roomCode);
-          }
-        }
-      } catch (error) {
-        console.error("[Socket.IO] Error handling disconnect:", error);
+    
+socket.on("disconnect", () => {
+  console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
+  try {
+    const gameState = storage.getRoomByPlayerId(socket.id);
+    if (gameState) {
+      const player = gameState.players.find(p => p.id === socket.id);
+      if (player) {
+        console.log(`[Socket.IO] Disconnecting player: ${player.name} from room ${gameState.roomCode}`);
+        storage.updatePlayerConnection(gameState.roomCode, socket.id, false);
+        socket.to(gameState.roomCode).emit("player_left", player.name);
+        emitGameState(gameState.roomCode);
       }
-    });
-  });
+    }
+  } catch (error) {
+    console.error("[Socket.IO] Error handling disconnect:", error);
+  }
+});
+
 
   return httpServer;
 }
