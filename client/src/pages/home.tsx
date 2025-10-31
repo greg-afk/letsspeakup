@@ -193,13 +193,13 @@ export default function Home() {
               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
                 1
               </span>
-              <p>Each player starts with 5 cards: 3 Statement Cards, 1 Role Card, and 1 Context Card.</p>
+              <p>Each player starts with 6 cards: 4 Statement Cards, 1 Role Card, and 1 Context Card.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
                 2
               </span>
-              <p>On your turn, select one card from each deck to create a set and rate it as "good" if you think it promotes psychological safety or "bad" if you think it hinders psychological safety.</p>
+              <p>On your turn, select one card from each deck to create a set and rate it as "Promotes" if you think it promotes psychological safety or "Hinders" if you think it hinders psychological safety.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
