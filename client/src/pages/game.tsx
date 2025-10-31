@@ -40,16 +40,7 @@ export default function Game() {
     const socket = getSocket();
     setMyPlayerId(socket.id);
 
-    const playerName = prompt("Enter your name");
-    if (!playerName?.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Missing name",
-        description: "Please enter a valid name to join the game.",
-      });
-      setLocation("/");
-      return;
-    }
+    const playerName = "Anonymous";
 
     socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
       if (!success) {
