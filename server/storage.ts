@@ -1,4 +1,4 @@
-import type { Card, Player, GameState, CardSet, Rating } from "@shared/schema";
+import type { Card, Player, GameState, CardSet } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export function generateRoomCode(): string {
@@ -29,22 +29,22 @@ const deckValues: Record<number, string[]> = {
     "I think you’re overreacting. It wasn’t meant that way.",
     "Wow, your English is really good for a foreign speaker.",
     "People just need to stop being so sensitive.",
-    "You’re being too emotional about this."
+    "You’re being too emotional about this.",
   ],
   2: [
     "The Micromanager: Pays excessive attention to details and struggles to trust the team’s capabilities.",
     "The People Pleaser: Tries to maintain harmony but avoids conflict or challenging authority.",
     "The Inconsistent Manager: Sends mixed signals and changes expectations frequently, creating confusion and uncertainty within the team.",
     "The Devil’s Advocate: Plays the role of a contrarian to challenge groupthink.",
-    "The Optimist: Always sees the silver lining and tries to motivate the team."
+    "The Optimist: Always sees the silver lining and tries to motivate the team.",
   ],
   3: [
     "During a team brainstorming session",
     "While training a team member on a new tool or process",
     "While mentoring a junior colleague",
     "When under intense pressure to deliver results",
-    "While conducting a performance review"
-  ]
+    "While conducting a performance review",
+  ],
 };
 
 export function createDeck(deckNumber: number, count: number): Card[] {
@@ -59,6 +59,10 @@ export function createDeck(deckNumber: number, count: number): Card[] {
   }
   return cards;
 }
+
+type AddOrReconnectResult =
+  | { ok: true; action: "joined" | "reconnected" | "already_member" }
+  | { ok: false; reason: "not_found" | "full" | "not_waiting" | "duplicate_name" };
 
 export class MemStorage {
   private rooms: Map<string, GameState> = new Map();
@@ -88,33 +92,65 @@ export class MemStorage {
     return this.rooms.get(roomCode);
   }
 
-  addPlayerToRoom(roomCode: string, playerId: string, playerName: string): boolean {
+  /**
+   * Add a new player or reconnect an existing one (by name),
+   * updating socket.id and isConnected when appropriate.
+   */
+  addOrReconnectPlayer(roomCode: string, socketId: string, playerName: string): AddOrReconnectResult {
     const room = this.rooms.get(roomCode);
-      if (playerName === "Facilitator") return true;
-    if (!room || room.players.length >= room.maxPlayers || room.phase !== "waiting") return false;
-    if (room.players.some(p => p.id === playerId)) return false;
-    
-    room.players.push({ id: playerId, name: playerName, isConnected: true });
-    return true;
+    if (!room) return { ok: false, reason: "not_found" };
+
+    // If the same socket is already present, mark connected and return
+    const existingById = room.players.find((p) => p.id === socketId);
+    if (existingById) {
+      existingById.isConnected = true;
+      return { ok: true, action: "already_member" };
+    }
+
+    // If name matches a player who is currently disconnected, treat as reconnection
+    const existingByName = room.players.find((p) => p.name === playerName);
+    if (existingByName && existingByName.isConnected === false) {
+      existingByName.id = socketId;
+      existingByName.isConnected = true;
+      return { ok: true, action: "reconnected" };
+    }
+
+    // Active duplicate name is not allowed (prevents two "Anonymous" in-room clashes)
+    if (existingByName && existingByName.isConnected) {
+      return { ok: false, reason: "duplicate_name" };
+    }
+
+    // Room constraints
+    if (room.players.length >= room.maxPlayers) {
+      return { ok: false, reason: "full" };
+    }
+    if (room.phase !== "waiting") {
+      return { ok: false, reason: "not_waiting" };
+    }
+
+    // Add as a new player
+    room.players.push({ id: socketId, name: playerName, isConnected: true });
+    return { ok: true, action: "joined" };
   }
 
   removePlayerFromRoom(roomCode: string, playerId: string): void {
     const room = this.rooms.get(roomCode);
     if (!room) return;
-    room.players = room.players.filter(p => p.id !== playerId);
+    room.players = room.players.filter((p) => p.id !== playerId);
     if (room.players.length === 0) this.rooms.delete(roomCode);
   }
 
   updatePlayerConnection(roomCode: string, playerId: string, isConnected: boolean): void {
     const room = this.rooms.get(roomCode);
     if (!room) return;
-    const player = room.players.find(p => p.id === playerId);
+    const player = room.players.find((p) => p.id === playerId);
     if (player) player.isConnected = isConnected;
   }
 
   startGame(roomCode: string): boolean {
     const room = this.rooms.get(roomCode);
     if (!room || room.players.length < 2 || room.phase !== "waiting") return false;
+
     room.phase = "selecting";
     room.round = 1;
     room.currentPlayerIndex = 0;
@@ -128,36 +164,41 @@ export class MemStorage {
     let unique = false;
     let deck1: Card[], deck2: Card[], deck3: Card[];
     let comboKey: string;
-
     while (!unique) {
       deck1 = createDeck(1, 4);
       deck2 = createDeck(2, 1);
       deck3 = createDeck(3, 1);
-
       comboKey = [
-        ...deck1.map(c => c.value),
-        ...deck2.map(c => c.value),
-        ...deck3.map(c => c.value)
-      ].sort().join("|");
-
+        ...deck1.map((c) => c.value),
+        ...deck2.map((c) => c.value),
+        ...deck3.map((c) => c.value),
+      ]
+        .sort()
+        .join("\n");
       if (!room.usedCombinations.has(comboKey)) {
         unique = true;
         room.usedCombinations.add(comboKey);
       }
     }
-
     room.activePlayerHand = {
-      deck1,
-      deck2,
-      deck3,
+      deck1: deck1!,
+      deck2: deck2!,
+      deck3: deck3!,
     };
   }
 
-  selectCards(roomCode: string, playerId: string, cards: CardSet, rating: "promotes" | "hinders"): boolean {
+  selectCards(
+    roomCode: string,
+    playerId: string,
+    cards: CardSet,
+    rating: "promotes" | "hinders"
+  ): boolean {
     const room = this.rooms.get(roomCode);
     if (!room || room.phase !== "selecting") return false;
+
     const currentPlayer = room.players[room.currentPlayerIndex];
     if (!currentPlayer || currentPlayer.id !== playerId) return false;
+
     room.selectedCards = cards;
     room.activePlayerRating = rating;
     room.phase = "rating";
@@ -169,9 +210,11 @@ export class MemStorage {
   submitRating(roomCode: string, playerId: string, rating: "promotes" | "hinders"): boolean {
     const room = this.rooms.get(roomCode);
     if (!room || room.phase !== "rating") return false;
+
     const currentPlayer = room.players[room.currentPlayerIndex];
     if (currentPlayer && currentPlayer.id === playerId) return false;
-    if (room.ratings.some(r => r.playerId === playerId)) return false;
+    if (room.ratings.some((r) => r.playerId === playerId)) return false;
+
     room.ratings.push({ playerId, rating });
     if (room.ratings.length === room.players.length) room.phase = "revealing";
     return true;
@@ -180,12 +223,13 @@ export class MemStorage {
   nextRound(roomCode: string): boolean {
     const room = this.rooms.get(roomCode);
     if (!room || room.phase !== "revealing") return false;
+
     room.ratings = [];
     room.selectedCards = {
-  deck1Card: null,
-  deck2Card: null,
-  deck3Card: null,
-};
+      deck1Card: null,
+      deck2Card: null,
+      deck3Card: null,
+    };
     room.activePlayerRating = "";
     room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
     if (room.currentPlayerIndex === 0) room.round++;
@@ -196,7 +240,7 @@ export class MemStorage {
 
   getRoomByPlayerId(playerId: string): GameState | undefined {
     for (const room of this.rooms.values()) {
-      if (room.players.some(p => p.id === playerId)) return room;
+      if (room.players.some((p) => p.id === playerId)) return room;
     }
     return undefined;
   }
