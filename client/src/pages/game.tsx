@@ -389,7 +389,7 @@ if (gameState.phase === "revealing") {
                   {myRating && (
                     <div className="text-center py-4">
                       <Badge variant="outline" className="text-sm">
-                       You rated this as: <span>{myRating.rating === "good" ? "Promotes" : "Hinders"}</span>
+                       You rated this as: <span>{myRating.rating === "promotes" ? "Promotes" : "Hinders"}</span>
                       </Badge>
                       <p className="text-sm text-muted-foreground mt-2">
                         Waiting for other players... ({gameState.ratings.length}/{gameState.players.length})
