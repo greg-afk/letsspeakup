@@ -179,8 +179,8 @@ export class MemStorage {
     const room = this.rooms.get(roomCode);
     if (!room || room.phase !== "revealing") return false;
     room.ratings = [];
-    room.selectedCards = undefined;
-    room.activePlayerRating = undefined;
+    room.selectedCards = [];
+    room.activePlayerRating = "";
     room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
     if (room.currentPlayerIndex === 0) room.round++;
     room.phase = "selecting";
