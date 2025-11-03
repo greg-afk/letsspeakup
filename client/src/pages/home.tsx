@@ -207,19 +207,25 @@ export default function Home() {
               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
                 2
               </span>
-              <p>On your turn, select one card from each deck to create a set and rate it as "Promotes" if you think it promotes psychological safety or "Hinders" if you think it hinders psychological safety.</p>
+              <p>On your turn, select one card from each deck to create a set and secretly rate it as "Promotes" if you think it promotes psychological safety or "Hinders" if you think it hinders psychological safety.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
                 3
               </span>
-              <p>Other players secretly rate the same card set trying to match your rating.</p>
+              <p>Other players secretly rate the same card set.</p>
             </div>
             <div className="flex gap-3">
               <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
                 4
               </span>
-              <p>After all ratings are submitted, see who matched the active player's rating!</p>
+              <p>After all ratings are submitted, see who matched the active player's rating!</p>             
+            </div>
+<div className="flex gap-3">
+              <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
+                NOTE
+              </span>
+              <p>This online version is a simplified adaptation of the Let's Speak Up card game. It is intended solely for training purposes and must be used exclusively during a facilitated training session.</p>             
             </div>
           </CardContent>
         </Card>
