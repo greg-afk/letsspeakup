@@ -9,15 +9,15 @@ interface GameCardProps {
 
 export function GameCard({ card, isSelected, onClick }: GameCardProps) {
   const deckColors = {
-    1: "from-blue-500/10 to-blue-600/20 border-blue-500/30",
-    2: "from-purple-500/10 to-purple-600/20 border-purple-500/30",
-    3: "from-amber-500/10 to-amber-600/20 border-amber-500/30",
+    1: "from-yellow-500/10 to-yellow-600/20 border-yellow-500/30",
+    2: "from-orange-500/10 to-orange-600/20 border-orange-500/30",
+    3: "from-purple-500/10 to-purple-600/20 border-purple-500/30",
   };
 
   const deckTextColors = {
-    1: "text-blue-600 dark:text-blue-400",
-    2: "text-purple-600 dark:text-purple-400",
-    3: "text-amber-600 dark:text-amber-400",
+    1: "text-yellow-600 dark:text-yellow-400",
+    2: "text-orange-600 dark:text-orange-400",
+    3: "text-purple-600 dark:text-purple-400",
   };
 
   return (
