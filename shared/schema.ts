@@ -4,9 +4,8 @@ import { z } from "zod";
 export const cardSchema = z.object({
   id: z.string(),
   deckNumber: z.number().min(1).max(3), // Deck 1, 2, or 3
-  value: z.string(), // Card display value (e.g., "A", "2", "3", etc.)
+  value: z.string(), // Card display value
 });
-
 export type Card = z.infer<typeof cardSchema>;
 
 // Player in the game
@@ -15,15 +14,13 @@ export const playerSchema = z.object({
   name: z.string(),
   isConnected: z.boolean(),
 });
-
 export type Player = z.infer<typeof playerSchema>;
 
-// Rating submitted by a player
+// --- Rating enum now uses "promotes" | "hinders"
 export const ratingSchema = z.object({
   playerId: z.string(),
-  rating: z.enum(["good", "bad"]),
+  rating: z.enum(["promotes", "hinders"]),
 });
-
 export type Rating = z.infer<typeof ratingSchema>;
 
 // Card set played by the active player
@@ -32,16 +29,15 @@ export const cardSetSchema = z.object({
   deck2Card: cardSchema,
   deck3Card: cardSchema,
 });
-
 export type CardSet = z.infer<typeof cardSetSchema>;
 
 // Game phases
-export type GamePhase = 
-  | "waiting"    // Waiting for players to join
-  | "selecting"  // Active player is selecting cards
-  | "rating"     // Players are rating the card set
-  | "revealing"  // Showing the results
-  | "ended";     // Game has ended
+export type GamePhase =
+  | "waiting"   // Waiting for players to join
+  | "selecting" // Active player is selecting cards
+  | "rating"    // Players are rating the card set
+  | "revealing" // Showing the results
+  | "ended";    // Game has ended
 
 // Complete game state
 export const gameStateSchema = z.object({
@@ -49,42 +45,42 @@ export const gameStateSchema = z.object({
   phase: z.string() as z.ZodType<GamePhase>,
   players: z.array(playerSchema),
   currentPlayerIndex: z.number(),
-  activePlayerHand: z.object({
-    deck1: z.array(cardSchema),
-    deck2: z.array(cardSchema),
-    deck3: z.array(cardSchema),
-  }).optional(),
+  activePlayerHand: z
+    .object({
+      deck1: z.array(cardSchema),
+      deck2: z.array(cardSchema),
+      deck3: z.array(cardSchema),
+    })
+    .optional(),
   selectedCards: cardSetSchema.optional(),
-  activePlayerRating: z.enum(["good", "bad"]).optional(),
+  // --- Active player's self-rating updated here too
+  activePlayerRating: z.enum(["promotes", "hinders"]).optional(),
   ratings: z.array(ratingSchema),
   round: z.number(),
   maxPlayers: z.number(),
 });
-
 export type GameState = z.infer<typeof gameStateSchema>;
 
-// WebSocket message types
+// WebSocket message types (kept for reference if used elsewhere)
 export const joinRoomMessageSchema = z.object({
   type: z.literal("join_room"),
   roomCode: z.string(),
   playerName: z.string(),
 });
-
 export const selectCardsMessageSchema = z.object({
   type: z.literal("select_cards"),
   cards: cardSetSchema,
-  rating: z.enum(["good", "bad"]),
+  // --- Rating enum fixed here
+  rating: z.enum(["promotes", "hinders"]),
 });
-
 export const submitRatingMessageSchema = z.object({
   type: z.literal("submit_rating"),
-  rating: z.enum(["good", "bad"]),
+  // --- Rating enum fixed here
+  rating: z.enum(["promotes", "hinders"]),
 });
-
 export const nextRoundMessageSchema = z.object({
   type: z.literal("next_round"),
 });
-
 export const createRoomMessageSchema = z.object({
   type: z.literal("create_room"),
   playerName: z.string(),
@@ -95,15 +91,14 @@ export type SelectCardsMessage = z.infer<typeof selectCardsMessageSchema>;
 export type SubmitRatingMessage = z.infer<typeof submitRatingMessageSchema>;
 export type NextRoundMessage = z.infer<typeof nextRoundMessageSchema>;
 export type CreateRoomMessage = z.infer<typeof createRoomMessageSchema>;
-
-export type ClientMessage = 
-  | JoinRoomMessage 
-  | SelectCardsMessage 
-  | SubmitRatingMessage 
+export type ClientMessage =
+  | JoinRoomMessage
+  | SelectCardsMessage
+  | SubmitRatingMessage
   | NextRoundMessage
   | CreateRoomMessage;
 
-// Server-to-client events
+// Socket.IO event interfaces (ensure both server & client import these)
 export interface ServerToClientEvents {
   game_state: (state: GameState) => void;
   error: (message: string) => void;
@@ -111,12 +106,11 @@ export interface ServerToClientEvents {
   player_left: (playerName: string) => void;
   room_created: (roomCode: string) => void;
 }
-
-// Client-to-server events
 export interface ClientToServerEvents {
   create_room: (playerName: string, callback: (roomCode: string) => void) => void;
   join_room: (roomCode: string, playerName: string, callback: (success: boolean, error?: string) => void) => void;
-  select_cards: (cards: CardSet, rating: "good" | "bad") => void;
-  submit_rating: (rating: "good" | "bad") => void;
+  // --- Rating param types fixed here, too
+  select_cards: (cards: CardSet, rating: "promotes" | "hinders") => void;
+  submit_rating: (rating: "promotes" | "hinders") => void;
   next_round: () => void;
 }
