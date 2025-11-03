@@ -222,7 +222,7 @@ export default function Home() {
               <p>After all ratings are submitted, see who matched the active player's rating!</p>             
             </div>
 <div className="flex gap-3">
-              <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">
+              <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-red/10 text-primary font-semibold text-xs">
                 !
               </span>
               <p>This online version is a simplified adaptation of the Let's Speak Up card game. It is intended solely for training purposes and must be used exclusively during a facilitated training session.</p>             
