@@ -18,43 +18,51 @@ function Label({ children, className }: { children: React.ReactNode; className?:
   return <div className={className}>{children}</div>;
 }
 
+// Normalize any legacy values ("good"/"bad") to the new enum ("promotes"/"hinders")
+function normalizeRating(r?: string) {
+  if (!r) return r;
+  if (r === "good") return "promotes";
+  if (r === "bad") return "hinders";
+  return r;
+}
+
+function ratingLabel(r?: string) {
+  const n = normalizeRating(r);
+  return n === "promotes" ? "Promotes" : n === "hinders" ? "Hinders" : n ?? "";
+}
+
 export function ResultsPanel({ gameState, currentPlayer, myPlayerId, onNextRound }: ResultsPanelProps) {
   const isMyTurn = currentPlayer?.id === myPlayerId;
+
+  const activeLabel = ratingLabel(gameState.activePlayerRating);
 
   return (
     <Card className="border-2">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 flex-wrap justify-between">
-          <span>Round Results</span>
-          <Badge variant="outline" className="text-sm">
-            {currentPlayer?.name}'s rating: 
-            <span className={cn(
-              "ml-1 font-semibold capitalize",
-              gameState.activePlayerRating === "good" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-            )}>
-              {gameState.activePlayerRating}
-            </span>
-          </Badge>
-        </CardTitle>
+        <CardTitle>Round Results</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {currentPlayer?.name}'s rating: <strong>{activeLabel}</strong>
+        </p>
       </CardHeader>
+
       <CardContent className="space-y-6">
         {/* Card Set Display */}
         {gameState.selectedCards && (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground text-center">
+          <div className="space-y-3">
+            <Label className="text-sm text-muted-foreground">
               {currentPlayer?.name}'s selected card set:
-            </p>
+            </Label>
             <div className="flex gap-4 justify-center flex-wrap">
               <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground text-center">Deck 1</Label>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Deck 1</Label>
                 <GameCard card={gameState.selectedCards.deck1Card} isSelected={false} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground text-center">Deck 2</Label>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Deck 2</Label>
                 <GameCard card={gameState.selectedCards.deck2Card} isSelected={false} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground text-center">Deck 3</Label>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Deck 3</Label>
                 <GameCard card={gameState.selectedCards.deck3Card} isSelected={false} />
               </div>
             </div>
@@ -63,65 +71,48 @@ export function ResultsPanel({ gameState, currentPlayer, myPlayerId, onNextRound
 
         {/* Ratings Grid */}
         <div className="space-y-3">
-          <p className="text-sm font-semibold">Player Ratings:</p>
-          <div className="grid gap-3 md:grid-cols-2">
+          <Label className="text-sm font-semibold">Player Ratings:</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {gameState.players.map((player) => {
               const playerRating = gameState.ratings.find((r) => r.playerId === player.id);
               const isActivePlayer = player.id === currentPlayer?.id;
-              const matchedActivePlayer = !isActivePlayer && 
-                playerRating?.rating === gameState.activePlayerRating;
+
+              const normalizedPlayerRating = normalizeRating(playerRating?.rating);
+              const matchesActive =
+                !isActivePlayer && normalizedPlayerRating === normalizeRating(gameState.activePlayerRating);
 
               return (
                 <div
                   key={player.id}
-                  data-testid={`result-player-${player.id}`}
                   className={cn(
-                    "flex items-center gap-3 p-4 rounded-lg border-2 transition-all",
-                    matchedActivePlayer && "bg-green-500/5 border-green-500/30",
-                    !matchedActivePlayer && "bg-card border-card-border"
+                    "flex items-center justify-between p-3 rounded-md border",
+                    matchesActive ? "border-green-600/60 bg-green-50" : "border-muted"
                   )}
                 >
-                  <Avatar className="w-10 h-10 border-2">
-                    <AvatarFallback className="font-semibold">
-                      {player.name.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">
-                      {player.name}
-                      {player.id === myPlayerId && (
-                        <span className="text-muted-foreground ml-1">(You)</span>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>{player.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {player.name} {player.id === myPlayerId && <span className="text-muted-foreground">(You)</span>}
+                      </span>
+                      {playerRating ? (
+                        <span className="text-xs text-muted-foreground">
+                          {ratingLabel(playerRating.rating)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No rating</span>
                       )}
-                    </p>
-                    {playerRating && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge 
-                          variant="outline" 
-                          className={cn(
-                            "text-xs capitalize",
-                            playerRating.rating === "good" 
-                              ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30"
-                              : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
-                          )}
-                        >
-                          {playerRating.rating}
-                        </Badge>
-                        {matchedActivePlayer && (
-                          <Badge variant="default" className="text-xs gap-1">
-                            <Check className="w-3 h-3" />
-                            Match!
-                          </Badge>
-                        )}
-                        {!isActivePlayer && !matchedActivePlayer && (
-                          <Badge variant="outline" className="text-xs gap-1">
-                            <X className="w-3 h-3" />
-                            No match
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                    </div>
                   </div>
+
+                  {!isActivePlayer && playerRating && (
+                    <Badge variant={matchesActive ? "default" : "secondary"} className="flex items-center gap-1">
+                      {matchesActive ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                      {matchesActive ? "Match!" : "No match"}
+                    </Badge>
+                  )}
                 </div>
               );
             })}
@@ -129,26 +120,17 @@ export function ResultsPanel({ gameState, currentPlayer, myPlayerId, onNextRound
         </div>
 
         {/* Next Round Button */}
-        {isMyTurn && (
-          <div className="pt-4">
-            <Button
-              data-testid="button-next-round"
-              onClick={onNextRound}
-              size="lg"
-              className="w-full gap-2"
-            >
+        {isMyTurn ? (
+          <div className="text-right">
+            <Button onClick={onNextRound} className="gap-1">
               Next Round
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-        )}
-
-        {!isMyTurn && (
-          <div className="text-center py-4">
-            <p className="text-sm text-muted-foreground">
-              Waiting for {currentPlayer?.name} to start the next round...
-            </p>
-          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Waiting for {currentPlayer?.name} to start the next round...
+          </p>
         )}
       </CardContent>
     </Card>
