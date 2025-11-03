@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { getSocket, connectSocket, disconnectSocket } from "@/lib/socket";
@@ -18,7 +19,13 @@ export default function Game() {
   const [, params] = useRoute("/game/:roomCode");
   const [, setLocation] = useLocation();
   const roomCode = params?.roomCode ?? "";
-  const isCreated = new URLSearchParams(window.location.search).get("created") === "true";
+  const search = new URLSearchParams(window.location.search);
+
+  // Identity: facilitator if ?name=Facilitator OR ?role=fac
+  const rawName = (search.get("name") || "").trim();
+  const roleParam = (search.get("role") || "").trim().toLowerCase();
+  const isFacilitator = rawName.toLowerCase() === "facilitator" || roleParam === "fac";
+  const playerName = rawName.length > 0 ? rawName : "Anonymous";
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string>("");
@@ -38,10 +45,10 @@ export default function Game() {
     const onGameState = (state: GameState) => setGameState(state);
     const onError = (message: string) =>
       toast({ variant: "destructive", title: "Error", description: message });
-    const onPlayerJoined = (playerName: string) =>
-      toast({ title: "Player joined", description: `${playerName} has joined the game.` });
-    const onPlayerLeft = (playerName: string) =>
-      toast({ title: "Player left", description: `${playerName} has left the game.` });
+    const onPlayerJoined = (name: string) =>
+      toast({ title: "Player joined", description: `${name} has joined the game.` });
+    const onPlayerLeft = (name: string) =>
+      toast({ title: "Player left", description: `${name} has left the game.` });
 
     socket.on("game_state", onGameState);
     socket.on("error", onError);
@@ -52,11 +59,7 @@ export default function Game() {
       // socket.id is valid after connect/reconnect
       setMyPlayerId(socket.id);
 
-      // Use name from URL if present; otherwise default to "Anonymous"
-      const params = new URLSearchParams(window.location.search);
-      const playerName = params.get("name") ?? "Anonymous";
-
-      socket.emit("join_room", roomCode, playerName, (success: boolean, error?: string) => {
+      socket.emit("join_room", roomCode, isFacilitator ? "Facilitator" : playerName, (success: boolean, error?: string) => {
         if (!success) {
           toast({
             variant: "destructive",
@@ -68,14 +71,12 @@ export default function Game() {
       });
     };
 
-    if (socket.connected) {
-      doJoin();
-    } else {
-      socket.once("connect", doJoin);
-    }
+    if (socket.connected) doJoin();
+    else socket.once("connect", doJoin);
 
     socket.io.on("reconnect", doJoin);
 
+    // Clean up listeners and connection
     return () => {
       socket.off("game_state", onGameState);
       socket.off("error", onError);
@@ -85,15 +86,18 @@ export default function Game() {
       socket.io.off("reconnect", doJoin);
       disconnectSocket();
     };
-  }, [roomCode, setLocation, toast]);
+  }, [roomCode, playerName, isFacilitator, setLocation, toast]);
 
-  // Remove "?created=true" to keep share link clean
+  // If the room was created by this browser and has ?created=true, strip it for a clean share link
   useEffect(() => {
+    const isCreated = search.get("created") === "true";
     if (isCreated) {
-      window.history.replaceState({}, "", `/game/${roomCode}`);
+      window.history.replaceState({}, "", `/game/${roomCode}${isFacilitator ? "?name=Facilitator" : ""}`);
     }
-  }, [isCreated, roomCode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomCode, isFacilitator]);
 
+  // --- UI handlers (guard writes when facilitator) ---
   const handleLeaveGame = () => setLocation("/");
 
   const handleCopyRoomCode = () => {
@@ -101,7 +105,7 @@ export default function Game() {
     setCopied(true);
     toast({
       title: "Room code copied!",
-      description: "Share this code with your friends to invite them.",
+      description: "Share this code with your players/facilitator.",
     });
     setTimeout(() => setCopied(false), 2000);
   };
@@ -116,6 +120,7 @@ export default function Game() {
   };
 
   const handleSubmitCards = (rating: "promotes" | "hinders") => {
+    if (isFacilitator) return; // read-only
     if (!selectedCards.deck1 || !selectedCards.deck2 || !selectedCards.deck3) {
       toast({
         variant: "destructive",
@@ -135,15 +140,19 @@ export default function Game() {
   };
 
   const handleSubmitRating = (rating: "promotes" | "hinders") => {
-    const socket = getSocket();
-    socket.emit("submit_rating", rating);
+    if (isFacilitator) return; // read-only
+    getSocket().emit("submit_rating", rating);
   };
 
   const handleNextRound = () => {
-    const socket = getSocket();
-    socket.emit("next_round");
+    if (isFacilitator) {
+      toast({ title: "Observer mode", description: "Facilitators don’t advance rounds." });
+      return;
+    }
+    getSocket().emit("next_round");
   };
 
+  // --- Loading state ---
   if (!gameState) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -170,7 +179,7 @@ export default function Game() {
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
-                <h1 className="text-xl font-bold">Card Match</h1>
+                <h1 className="text-xl font-bold">Card Match {isFacilitator && <span className="text-xs text-muted-foreground">(Facilitator)</span>}</h1>
                 <p className="text-sm text-muted-foreground">Round {gameState.round}</p>
               </div>
             </div>
@@ -223,12 +232,16 @@ export default function Game() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <PlayerList players={gameState.players} currentPlayerId={currentPlayer?.id} myPlayerId={myPlayerId} />
+                <PlayerList
+                  players={gameState.players}
+                  currentPlayerId={currentPlayer?.id}
+                  myPlayerId={myPlayerId}
+                />
               </CardContent>
             </Card>
 
-            {/* Card Selection Phase */}
-            {gameState.phase === "selecting" && isMyTurn && gameState.activePlayerHand && (
+            {/* Card Selection Phase (facilitator never sees the selector) */}
+            {gameState.phase === "selecting" && !isFacilitator && isMyTurn && gameState.activePlayerHand && (
               <Card className="border-2">
                 <CardHeader>
                   <CardTitle>Select Your Cards</CardTitle>
@@ -272,7 +285,7 @@ export default function Game() {
             )}
 
             {/* Waiting for Active Player */}
-            {gameState.phase === "selecting" && !isMyTurn && (
+            {gameState.phase === "selecting" && (!isMyTurn || isFacilitator) && (
               <Card className="border-2">
                 <CardContent className="py-12 text-center">
                   <div className="animate-pulse space-y-4">
@@ -302,20 +315,22 @@ export default function Game() {
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Display Selected Cards */}
                   <div className="flex gap-4 justify-center flex-wrap">
                     <ShowCard label="Statement" card={gameState.selectedCards.deck1Card} />
                     <ShowCard label="Role" card={gameState.selectedCards.deck2Card} />
                     <ShowCard label="Context" card={gameState.selectedCards.deck3Card} />
                   </div>
 
-                  {!isMyTurn && !myRating && (
+                  {/* Observers do not rate */}
+                  {!isFacilitator && !isMyTurn && !myRating && (
                     <>
                       <Separator />
                       <RatingPanel onSubmit={handleSubmitRating} disabled={false} title="Submit your rating" />
                     </>
                   )}
 
-                  {myRating && (
+                  {!isFacilitator && myRating && (
                     <div className="text-center py-4">
                       <Badge variant="outline" className="text-sm">
                         You rated this as: <span>{myRating.rating === "promotes" ? "Promotes" : "Hinders"}</span>
@@ -329,7 +344,7 @@ export default function Game() {
               </Card>
             )}
 
-            {/* Results Phase */}
+            {/* Results Phase (observer can view, but Next Round guarded in handler) */}
             {gameState.phase === "revealing" && gameState.selectedCards && (
               <ResultsPanel
                 gameState={gameState}
@@ -385,4 +400,3 @@ function ShowCard({ label, card }: { label: string; card: CardType | null }) {
     </div>
   );
 }
-``
