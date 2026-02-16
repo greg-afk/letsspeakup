@@ -250,28 +250,32 @@ export default function Game() {
                 <CardContent className="space-y-6">
                   {/* Deck 1 */}
                   <DeckSection
-                    title="Statement Cards"
-                    selected={!!selectedCards.deck1}
-                    cards={gameState.activePlayerHand.deck1}
-                    isSelected={(c) => selectedCards.deck1?.id === c.id}
+
+                     title="Role Card"
+                    selected={!!selectedCards.deck2}
+                    cards={gameState.activePlayerHand.deck2}
+                    isSelected={(c) => selectedCards.deck2?.id === c.id}
                     onClick={handleCardSelect}
+                    
                   />
                   <Separator />
                   {/* Deck 2 */}
                   <DeckSection
-                    title="Role Card"
-                    selected={!!selectedCards.deck2}
-                    cards={gameState.activePlayerHand.deck2}
-                    isSelected={(c) => selectedCards.deck2?.id === c.id}
+                                        title="Context Card"
+                    selected={!!selectedCards.deck3}
+                    cards={gameState.activePlayerHand.deck3}
+                    isSelected={(c) => selectedCards.deck3?.id === c.id}
                     onClick={handleCardSelect}
                   />
                   <Separator />
                   {/* Deck 3 */}
                   <DeckSection
-                    title="Context Card"
-                    selected={!!selectedCards.deck3}
-                    cards={gameState.activePlayerHand.deck3}
-                    isSelected={(c) => selectedCards.deck3?.id === c.id}
+
+
+                    title="Statement Cards"
+                    selected={!!selectedCards.deck1}
+                    cards={gameState.activePlayerHand.deck1}
+                    isSelected={(c) => selectedCards.deck1?.id === c.id}
                     onClick={handleCardSelect}
                   />
                   <Separator />
@@ -304,31 +308,39 @@ export default function Game() {
             )}
 
             {/* Rating Phase */}
-            {gameState.phase === "rating" && gameState.selectedCards && (
-              <Card className="border-2">
-                <CardHeader>
-                  <CardTitle>{isMyTurn ? "Your Card Set" : `${currentPlayer?.name}'s Card Set`}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {isMyTurn
-                      ? "Waiting for others to rate your set..."
-                      : "Rate this card set - does it promote or hinder psychological safety?"}
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Display Selected Cards */}
-                  <div className="flex gap-4 justify-center flex-wrap">
-                    <ShowCard label="Statement" card={gameState.selectedCards.deck1Card} />
-                    <ShowCard label="Role" card={gameState.selectedCards.deck2Card} />
-                    <ShowCard label="Context" card={gameState.selectedCards.deck3Card} />
-                  </div>
+{gameState.phase === "rating" && gameState.selectedCards && (
+  <Card className="border-2">
+    {/* ... Header stays the same ... */}
+    <CardHeader>
+      <CardTitle>{isMyTurn ? "Your Card Set" : `${currentPlayer?.name}'s Card Set`}</CardTitle>
+      <p className="text-sm text-muted-foreground">
+        {isMyTurn
+          ? "Waiting for others to rate your set..."
+          : "Rate this card set - does it promote or hinder psychological safety?"}
+      </p>
+    </CardHeader>
+    <CardContent className="space-y-6">
+      {/* Display Selected Cards - REORDERED HERE */}
+      <div className="flex gap-4 justify-center flex-wrap">
+        {/* Role First */}
+        <ShowCard label="Role" card={gameState.selectedCards.deck2Card} />
+        {/* Context Second */}
+        <ShowCard label="Context" card={gameState.selectedCards.deck3Card} />
+        {/* Statement Last */}
+        <ShowCard label="Statement" card={gameState.selectedCards.deck1Card} />
+      </div>
 
-                  {/* Observers do not rate */}
-                  {!isFacilitator && !isMyTurn && !myRating && (
-                    <>
-                      <Separator />
-                      <RatingPanel onSubmit={handleSubmitRating} disabled={false} title="Submit your rating" />
-                    </>
-                  )}
+      {/* ... Rest of rating logic stays the same ... */}
+      {!isFacilitator && !isMyTurn && !myRating && (
+        <>
+          <Separator />
+          <RatingPanel onSubmit={handleSubmitRating} disabled={false} title="Submit your rating" />
+        </>
+      )}
+      {/* ... */}
+    </CardContent>
+  </Card>
+)}
 
                   {!isFacilitator && myRating && (
                     <div className="text-center py-4">
