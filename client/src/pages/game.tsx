@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { getSocket, connectSocket, disconnectSocket } from "@/lib/socket";
@@ -248,30 +247,26 @@ export default function Game() {
                   <p className="text-sm text-muted-foreground">Choose one card from each deck to create your set</p>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Deck 1 */}
+                  {/* Deck 2: Role (First) */}
                   <DeckSection
-
-                     title="Role Card"
+                    title="Role Card"
                     selected={!!selectedCards.deck2}
                     cards={gameState.activePlayerHand.deck2}
                     isSelected={(c) => selectedCards.deck2?.id === c.id}
                     onClick={handleCardSelect}
-                    
                   />
                   <Separator />
-                  {/* Deck 2 */}
+                  {/* Deck 3: Context (Second) */}
                   <DeckSection
-                                        title="Context Card"
+                    title="Context Card"
                     selected={!!selectedCards.deck3}
                     cards={gameState.activePlayerHand.deck3}
                     isSelected={(c) => selectedCards.deck3?.id === c.id}
                     onClick={handleCardSelect}
                   />
                   <Separator />
-                  {/* Deck 3 */}
+                  {/* Deck 1: Statement (Third) */}
                   <DeckSection
-
-
                     title="Statement Cards"
                     selected={!!selectedCards.deck1}
                     cards={gameState.activePlayerHand.deck1}
@@ -308,39 +303,31 @@ export default function Game() {
             )}
 
             {/* Rating Phase */}
-{gameState.phase === "rating" && gameState.selectedCards && (
-  <Card className="border-2">
-    {/* ... Header stays the same ... */}
-    <CardHeader>
-      <CardTitle>{isMyTurn ? "Your Card Set" : `${currentPlayer?.name}'s Card Set`}</CardTitle>
-      <p className="text-sm text-muted-foreground">
-        {isMyTurn
-          ? "Waiting for others to rate your set..."
-          : "Rate this card set - does it promote or hinder psychological safety?"}
-      </p>
-    </CardHeader>
-    <CardContent className="space-y-6">
-      {/* Display Selected Cards - REORDERED HERE */}
-      <div className="flex gap-4 justify-center flex-wrap">
-        {/* Role First */}
-        <ShowCard label="Role" card={gameState.selectedCards.deck2Card} />
-        {/* Context Second */}
-        <ShowCard label="Context" card={gameState.selectedCards.deck3Card} />
-        {/* Statement Last */}
-        <ShowCard label="Statement" card={gameState.selectedCards.deck1Card} />
-      </div>
+            {gameState.phase === "rating" && gameState.selectedCards && (
+              <Card className="border-2">
+                <CardHeader>
+                  <CardTitle>{isMyTurn ? "Your Card Set" : `${currentPlayer?.name}'s Card Set`}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {isMyTurn
+                      ? "Waiting for others to rate your set..."
+                      : "Rate this card set - does it promote or hinder psychological safety?"}
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Display Selected Cards (Reordered: Role -> Context -> Statement) */}
+                  <div className="flex gap-4 justify-center flex-wrap">
+                    <ShowCard label="Role" card={gameState.selectedCards.deck2Card} />
+                    <ShowCard label="Context" card={gameState.selectedCards.deck3Card} />
+                    <ShowCard label="Statement" card={gameState.selectedCards.deck1Card} />
+                  </div>
 
-      {/* ... Rest of rating logic stays the same ... */}
-      {!isFacilitator && !isMyTurn && !myRating && (
-        <>
-          <Separator />
-          <RatingPanel onSubmit={handleSubmitRating} disabled={false} title="Submit your rating" />
-        </>
-      )}
-      {/* ... */}
-    </CardContent>
-  </Card>
-)}
+                  {/* Observers do not rate */}
+                  {!isFacilitator && !isMyTurn && !myRating && (
+                    <>
+                      <Separator />
+                      <RatingPanel onSubmit={handleSubmitRating} disabled={false} title="Submit your rating" />
+                    </>
+                  )}
 
                   {!isFacilitator && myRating && (
                     <div className="text-center py-4">
