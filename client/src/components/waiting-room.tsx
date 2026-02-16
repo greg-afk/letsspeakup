@@ -83,7 +83,7 @@ export function WaitingRoom({ gameState, myPlayerId, roomCode }: WaitingRoomProp
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
-            Each player will receive 6 cards: 4 Statement Cards, 1 Role Card, and 1 Context Card.
+            Each player will receive 6 cards: 1 Role Card, 1 Context Card and 4 Statement Cards.
           </p>
           <p>
             On your turn (Active Player), select one card from each deck to create a set and secretly rate it as "Promotes" if you think it promotes psychological safety or "Hinders" if you think it hinders psychological safety.
