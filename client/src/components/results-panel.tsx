@@ -46,14 +46,13 @@ export function ResultsPanel({ gameState, currentPlayer, myPlayerId, onNextRound
       </CardHeader>
 
       <CardContent className="space-y-6">
-      {/* Card Set Display */}
+        {/* Card Set Display */}
         {gameState.selectedCards && (
           <div className="space-y-3">
             <Label className="text-sm text-muted-foreground">
               {currentPlayer?.name}'s selected card set:
             </Label>
             <div className="flex gap-4 justify-center flex-wrap">
-              
               {/* 1. ROLE (Deck 2) */}
               <div className="space-y-2">
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">Role</Label>
@@ -71,7 +70,6 @@ export function ResultsPanel({ gameState, currentPlayer, myPlayerId, onNextRound
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">Statement</Label>
                 <GameCard card={gameState.selectedCards.deck1Card} isSelected={false} />
               </div>
-              
             </div>
           </div>
         )}
