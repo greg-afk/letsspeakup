@@ -26,7 +26,7 @@ export function GameCard({ card, isSelected, onClick }: GameCardProps) {
       onClick={onClick}
       disabled={!onClick}
       className={cn(
-        "group relative w-24 md:w-32 aspect-[2/3] rounded-lg border-2 transition-all",
+        "group relative w-40 md:w-52 min-h-[15rem] md:min-h-[19rem] rounded-lg border-2 transition-all",
         "bg-gradient-to-br shadow-lg",
         deckColors[card.deckNumber as keyof typeof deckColors],
         onClick && "cursor-pointer hover-elevate active-elevate-2",
@@ -44,16 +44,16 @@ export function GameCard({ card, isSelected, onClick }: GameCardProps) {
       </div>
 
       {/* Card Value */}
-<div className="absolute inset-0 flex items-center justify-center p-2">
-  <div className={cn(
-    "text-xs md:text-sm font-medium text-center overflow-y-auto max-h-full w-full",
-    deckTextColors[card.deckNumber as keyof typeof deckTextColors]
-  )}>
-    {card.value}
-  </div>
-</div>
+      <div className="flex items-center justify-center w-full min-h-[15rem] md:min-h-[19rem] px-3 py-6">
+        <div className={cn(
+          "text-sm md:text-base font-medium text-center leading-snug w-full",
+          deckTextColors[card.deckNumber as keyof typeof deckTextColors]
+        )}>
+          {card.value}
+        </div>
+      </div>
 
-      
+
     </button>
   );
 }

@@ -13,6 +13,7 @@ import { PlayerList } from "@/components/player-list";
 import { RatingPanel } from "@/components/rating-panel";
 import { ResultsPanel } from "@/components/results-panel";
 import { WaitingRoom } from "@/components/waiting-room";
+import { GameTimer } from "@/components/game-timer";
 
 export default function Game() {
   const [, params] = useRoute("/game/:roomCode");
@@ -23,8 +24,19 @@ export default function Game() {
   // Identity: facilitator if ?name=Facilitator OR ?role=fac
   const rawName = (search.get("name") || "").trim();
   const roleParam = (search.get("role") || "").trim().toLowerCase();
-  const isFacilitator = rawName.toLowerCase() === "facilitator" || roleParam === "fac";
-  const playerName = rawName.length > 0 ? rawName : "Anonymous";
+
+  // Remember the player's name per browser tab so that a reconnect or a page
+  // reload keeps the SAME identity. Without this we'd rejoin as "Anonymous",
+  // the server wouldn't recognise the returning player, and (mid-game) would
+  // lock them out. sessionStorage is per-tab, so multiple tabs can each keep
+  // their own name.
+  const nameStorageKey = `lsu_name_${roomCode}`;
+  const storedName =
+    typeof sessionStorage !== "undefined" ? (sessionStorage.getItem(nameStorageKey) || "").trim() : "";
+
+  const resolvedName = rawName.length > 0 ? rawName : storedName.length > 0 ? storedName : "Anonymous";
+  const isFacilitator = resolvedName.toLowerCase() === "facilitator" || roleParam === "fac";
+  const playerName = resolvedName;
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string>("");
@@ -86,6 +98,17 @@ export default function Game() {
       disconnectSocket();
     };
   }, [roomCode, playerName, isFacilitator, setLocation, toast]);
+
+  // Persist a real (non-anonymous) name so future reconnects/reloads reuse it.
+  useEffect(() => {
+    if (roomCode && playerName && playerName !== "Anonymous") {
+      try {
+        sessionStorage.setItem(nameStorageKey, playerName);
+      } catch {
+        /* ignore storage errors (private mode, etc.) */
+      }
+    }
+  }, [roomCode, playerName, nameStorageKey]);
 
   // If the room was created by this browser and has ?created=true, strip it for a clean share link
   useEffect(() => {
@@ -184,6 +207,11 @@ export default function Game() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* 10-minute phase timer — visible to all players + facilitator */}
+              {gameState.timerStartsAt &&
+                (gameState.phase === "rating" || gameState.phase === "revealing") && (
+                  <GameTimer startsAt={gameState.timerStartsAt} />
+                )}
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="gap-1.5">
                   <Users className="w-3.5 h-3.5" />

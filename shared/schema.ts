@@ -13,6 +13,7 @@ export const playerSchema = z.object({
   id: z.string(),
   name: z.string(),
   isConnected: z.boolean(),
+  score: z.number().default(0),
 });
 export type Player = z.infer<typeof playerSchema>;
 
@@ -58,6 +59,9 @@ export const gameStateSchema = z.object({
   ratings: z.array(ratingSchema),
   round: z.number(),
   maxPlayers: z.number(),
+  // --- Timer: unix-ms timestamp when the 10-minute countdown started.
+  // Set when the active player begins acting; undefined when no timer is running.
+  timerStartsAt: z.number().optional(),
 });
 export type GameState = z.infer<typeof gameStateSchema>;
 

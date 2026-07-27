@@ -116,6 +116,7 @@ export class MemStorage {
       id: hostPlayerId,
       name: hostPlayerName,
       isConnected: true,
+      score: 0,
     };
     const gameState: GameState = {
       roomCode,
@@ -124,7 +125,7 @@ export class MemStorage {
       currentPlayerIndex: 0,
       ratings: [],
       round: 0,
-      maxPlayers: 3,
+      maxPlayers: 6,
       usedCombinations: new Set(),
     };
     this.rooms.set(roomCode, gameState);
@@ -150,24 +151,28 @@ export class MemStorage {
       return { ok: true, action: "already_member" };
     }
 
-    // Reclaim previous (same-name) disconnected slot
+    // A player with this name already exists → treat this as the SAME person
+    // returning and hand their seat back (update to the new socket id).
     const existingByName = room.players.find((p) => p.name === playerName);
-    if (existingByName && existingByName.isConnected === false) {
+    if (existingByName) {
+      // Only guard against a genuine name collision while still in the lobby:
+      // two *different* people picking the same name before the game starts.
+      // Once the game is running, a matching name is always a reconnection, so
+      // we reclaim the seat even if it still looks "connected" (covers the
+      // window where the old socket hasn't timed out yet).
+      if (existingByName.isConnected && room.phase === "waiting") {
+        return { ok: false, reason: "duplicate_name" };
+      }
       existingByName.id = socketId;
       existingByName.isConnected = true;
       return { ok: true, action: "reconnected" };
     }
 
-    // Active duplicate name isn't allowed
-    if (existingByName && existingByName.isConnected) {
-      return { ok: false, reason: "duplicate_name" };
-    }
-
-    // Room constraints
+    // Brand-new player: enforce room constraints.
     if (room.players.length >= room.maxPlayers) return { ok: false, reason: "full" };
     if (room.phase !== "waiting") return { ok: false, reason: "not_waiting" };
 
-    room.players.push({ id: socketId, name: playerName, isConnected: true });
+    room.players.push({ id: socketId, name: playerName, isConnected: true, score: 0 });
     return { ok: true, action: "joined" };
   }
 
@@ -187,13 +192,16 @@ export class MemStorage {
 
   startGame(roomCode: string): boolean {
     const room = this.rooms.get(roomCode);
-    if (!room || room.players.length < 2 || room.phase !== "waiting") return false;
+    if (!room || room.players.length < 3 || room.phase !== "waiting") return false;
 
     room.phase = "selecting";
     room.round = 1;
     room.currentPlayerIndex = 0;
     room.ratings = [];
     room.usedCombinations = new Set();
+    room.timerStartsAt = undefined;
+    // Reset all scores at the start of a fresh game
+    room.players.forEach((p) => (p.score = 0));
     this.dealCardsToCurrentPlayer(room);
     return true;
   }
@@ -256,7 +264,26 @@ export class MemStorage {
     room.phase = "rating";
     room.ratings = [{ playerId: currentPlayer.id, rating }];
     room.activePlayerHand = undefined;
+    // Start the 10-minute countdown now that the active player begins acting.
+    room.timerStartsAt = Date.now();
     return true;
+  }
+
+  /**
+   * Award points for the just-completed round.
+   * The active player earns +1 for every OTHER player whose rating
+   * matched the active player's own intention (promotes/hinders).
+   */
+  private awardScores(room: GameState): void {
+    const activePlayer = room.players[room.currentPlayerIndex];
+    if (!activePlayer || !room.activePlayerRating) return;
+
+    let matches = 0;
+    for (const r of room.ratings) {
+      if (r.playerId === activePlayer.id) continue; // skip the active player's own rating
+      if (r.rating === room.activePlayerRating) matches++;
+    }
+    activePlayer.score = (activePlayer.score ?? 0) + matches;
   }
 
   submitRating(roomCode: string, playerId: string, rating: "promotes" | "hinders"): boolean {
@@ -272,6 +299,7 @@ export class MemStorage {
     // When everyone (including the active player who auto-rated) has a rating, reveal
     if (room.ratings.length === room.players.length) {
       room.phase = "revealing";
+      this.awardScores(room);
     }
     return true;
   }
@@ -283,6 +311,7 @@ export class MemStorage {
     room.ratings = [];
     room.selectedCards = undefined;         // clear selected cards for new round
     room.activePlayerRating = "";           // clear active player's rating
+    room.timerStartsAt = undefined;         // reset timer for the next active player
     room.currentPlayerIndex = (room.currentPlayerIndex + 1) % room.players.length;
     if (room.currentPlayerIndex === 0) room.round++;
     room.phase = "selecting";

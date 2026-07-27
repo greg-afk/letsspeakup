@@ -1,7 +1,7 @@
 import type { Player } from "@shared/schema";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Crown, User } from "lucide-react";
+import { Crown, User, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PlayerListProps {
@@ -69,6 +69,19 @@ export function PlayerList({ players, currentPlayerId, myPlayerId }: PlayerListP
                   </Badge>
                 )}
               </div>
+            </div>
+
+            {/* Score */}
+            <div className="flex flex-col items-center justify-center px-2 shrink-0">
+              <div className="flex items-center gap-1 text-primary">
+                <Trophy className="w-3.5 h-3.5" />
+                <span className="text-lg font-bold tabular-nums" data-testid={`score-${player.id}`}>
+                  {player.score ?? 0}
+                </span>
+              </div>
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {(player.score ?? 0) === 1 ? "point" : "points"}
+              </span>
             </div>
           </div>
         );

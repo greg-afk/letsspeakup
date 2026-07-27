@@ -37,6 +37,12 @@ export default function Home() {
     const socket = getSocket();
     socket.emit("create_room", playerName.trim(), (newRoomCode: string) => {
       setIsCreating(false);
+      // Remember our name for this room so reconnect/reload keeps the same identity.
+      try {
+        sessionStorage.setItem(`lsu_name_${newRoomCode}`, playerName.trim());
+      } catch {
+        /* ignore storage errors */
+      }
       setLocation(`/game/${newRoomCode}?created=true`); // ✅ updated with created=true
     });
   };
@@ -68,7 +74,14 @@ export default function Home() {
       (success: boolean, error?: string) => {
         setIsJoining(false);
         if (success) {
-          setLocation(`/game/${roomCode.trim().toUpperCase()}`);
+          const code = roomCode.trim().toUpperCase();
+          // Remember our name for this room so reconnect/reload keeps the same identity.
+          try {
+            sessionStorage.setItem(`lsu_name_${code}`, playerName.trim());
+          } catch {
+            /* ignore storage errors */
+          }
+          setLocation(`/game/${code}`);
         } else {
           toast({
             variant: "destructive",
@@ -134,7 +147,7 @@ export default function Home() {
                 <Play className="w-5 h-5 text-primary" />
                 Create New Game
               </CardTitle>
-              <CardDescription>Start a new game room; 3 players required </CardDescription>
+              <CardDescription>Start a new game room; 3–6 players</CardDescription>
             </CardHeader>
             <CardContent>
               <Button
