@@ -13,7 +13,7 @@ interface WaitingRoomProps {
 
 export function WaitingRoom({ gameState, myPlayerId, roomCode }: WaitingRoomProps) {
   const isHost = gameState.players[0]?.id === myPlayerId;
-  const canStart = gameState.players.length >= 2 && gameState.players.length <= 3;
+  const canStart = gameState.players.length >= 3 && gameState.players.length <= 6;
 
   const handleStartGame = () => {
     const socket = getSocket();
@@ -31,7 +31,7 @@ export function WaitingRoom({ gameState, myPlayerId, roomCode }: WaitingRoomProp
           <div>
             <h2 className="text-2xl md:text-3xl font-bold mb-2">Waiting Room</h2>
             <p className="text-muted-foreground">
-              {gameState.players.length < 2 
+              {gameState.players.length < 3
                 ? "Waiting for more players to join..."
                 : `${gameState.players.length}/${gameState.maxPlayers} players ready`}
             </p>
@@ -49,7 +49,7 @@ export function WaitingRoom({ gameState, myPlayerId, roomCode }: WaitingRoomProp
           )}
           {isHost && !canStart && (
             <p className="text-sm text-muted-foreground">
-              Need at least 2 players to start
+              Need 3–6 players to start
             </p>
           )}
           {!isHost && (

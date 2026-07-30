@@ -36,12 +36,26 @@ export function ResultsPanel({ gameState, currentPlayer, myPlayerId, onNextRound
 
   const activeLabel = ratingLabel(gameState.activePlayerRating);
 
+  // Points the active player earned this round: +1 per OTHER player who matched.
+  const pointsThisRound = gameState.ratings.filter(
+    (r) =>
+      r.playerId !== currentPlayer?.id &&
+      normalizeRating(r.rating) === normalizeRating(gameState.activePlayerRating)
+  ).length;
+
   return (
     <Card className="border-2">
       <CardHeader>
         <CardTitle>Round Results</CardTitle>
         <p className="text-sm text-muted-foreground">
           {currentPlayer?.name}'s rating: <strong>{activeLabel}</strong>
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {currentPlayer?.name} earned{" "}
+          <strong className="text-primary">
+            +{pointsThisRound} {pointsThisRound === 1 ? "point" : "points"}
+          </strong>{" "}
+          this round.
         </p>
       </CardHeader>
 

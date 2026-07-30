@@ -16,6 +16,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       origin: "*", // If you have a fixed client URL on Render, set it here
       methods: ["GET", "POST"],
     },
+    // Be a bit more tolerant of short network hiccups before marking a player
+    // "offline". Defaults are pingInterval 25s / pingTimeout 20s; we allow up to
+    // 40s without a heartbeat so brief WiFi drops don't flip players offline.
+    pingInterval: 25000,
+    pingTimeout: 40000,
   });
 
   function emitGameState(roomCode: string): void {
